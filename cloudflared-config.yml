@@ -1,0 +1,8 @@
+# Cloudflare Tunnel Config
+tunnel: <YOUR_TUNNEL_ID>
+credentials-file: /etc/cloudflared/<YOUR_TUNNEL_ID>.json
+
+ingress:
+  - hostname: sheo.yourdomain.com
+    service: http://app:5001
+  - service: http_status:404

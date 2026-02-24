@@ -1,0 +1,25 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/employee_db
+      - SESSION_SECRET=sidawin8n_secure_secret_2026
+      - NODE_ENV=production
+      - PORT=5001
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - db
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=employee_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:
