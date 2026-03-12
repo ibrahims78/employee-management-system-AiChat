@@ -458,13 +458,24 @@ function EmployeeFormDialog({
                     <FormItem className="text-right"><FormLabel>اسم الأم</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-motherName" /></FormControl><FormMessage /></FormItem>
                   )} />
 
-                  {/* Gender - editable dropdown */}
-                  <EditableSelectFormField
-                    control={form.control}
-                    name="gender"
-                    label="الجنس"
-                    dropdownKey="gender"
-                  />
+                  {/* Gender - fixed dropdown (no edit) */}
+                  <FormField control={form.control} name="gender" render={({ field }) => (
+                    <FormItem className="text-right">
+                      <FormLabel>الجنس</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger className="text-right" data-testid="select-gender">
+                            <SelectValue placeholder="اختر..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ذكر">ذكر</SelectItem>
+                          <SelectItem value="أنثى">أنثى</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
                   <FormField control={form.control} name="placeOfBirth" render={({ field }) => (
                     <FormItem className="text-right"><FormLabel>مكان الولادة</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-placeOfBirth" /></FormControl><FormMessage /></FormItem>
@@ -491,7 +502,20 @@ function EmployeeFormDialog({
                     <FormItem className="text-right"><FormLabel>الرقم الوطني <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-nationalId" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="shamCashNumber" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>رقم شام كاش</FormLabel><FormControl><Input {...field} className="text-right" value={field.value || ''} data-testid="input-shamCashNumber" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right">
+                      <FormLabel>رقم شام كاش <span className="text-destructive">*</span> <span className="text-xs text-muted-foreground font-normal">(16 رقم)</span></FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          className="text-right"
+                          value={field.value || ''}
+                          maxLength={16}
+                          placeholder="أدخل 16 رقماً"
+                          data-testid="input-shamCashNumber"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="mobile" render={({ field }) => (
                     <FormItem className="text-right"><FormLabel>رقم الجوال</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-mobile" /></FormControl><FormMessage /></FormItem>
@@ -553,13 +577,26 @@ function EmployeeFormDialog({
                     dropdownKey="employmentStatus"
                   />
 
-                  {/* Current Status (وضع العامل الحالي) - editable dropdown */}
-                  <EditableSelectFormField
-                    control={form.control}
-                    name="currentStatus"
-                    label="وضع العامل الحالي"
-                    dropdownKey="currentStatus"
-                  />
+                  {/* Current Status - fixed dropdown (no edit) */}
+                  <FormField control={form.control} name="currentStatus" render={({ field }) => (
+                    <FormItem className="text-right">
+                      <FormLabel>وضع العامل الحالي</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger className="text-right" data-testid="select-currentStatus">
+                            <SelectValue placeholder="اختر..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="على رأس عمله">على رأس عمله</SelectItem>
+                          <SelectItem value="إجازة بلا أجر">إجازة بلا أجر</SelectItem>
+                          <SelectItem value="نقل">نقل</SelectItem>
+                          <SelectItem value="استقالة">استقالة</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
                   {/* Assigned Work (العمل المكلف به) - editable dropdown */}
                   <div className="md:col-span-2">

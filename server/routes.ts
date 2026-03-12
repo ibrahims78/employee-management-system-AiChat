@@ -12,6 +12,7 @@ import fsSync from "fs";
 import isIP from "validator/lib/isIP";
 import rateLimit from "express-rate-limit";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -63,6 +64,58 @@ const upload = multer({
     }
   }
 });
+
+// Memory storage multer for Excel imports
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+// Arabic column → field name mapping for Excel import
+const IMPORT_COLUMN_MAP: Record<string, string> = {
+  'الاسم والكنية': 'fullName',
+  'اسم الأب': 'fatherName',
+  'اسم الأم': 'motherName',
+  'مكان الولادة': 'placeOfBirth',
+  'تاريخ الولادة': 'dateOfBirth',
+  'محل ورقم القيد': 'registryPlaceAndNumber',
+  'الرقم الوطني': 'nationalId',
+  'رقم شام كاش': 'shamCashNumber',
+  'الجنس': 'gender',
+  'الشهادة': 'certificate',
+  'نوع الشهادة': 'certificateType',
+  'الاختصاص': 'specialization',
+  'الصفة الوظيفية': 'jobTitle',
+  'الفئة': 'category',
+  'الوضع الوظيفي': 'employmentStatus',
+  'رقم قرار التعيين': 'appointmentDecisionNumber',
+  'تاريخ قرار التعيين': 'appointmentDecisionDate',
+  'أول مباشرة بالدولة': 'firstStateStart',
+  'أول مباشرة بالمديرية': 'firstDirectorateStart',
+  'أول مباشرة بالقسم': 'firstDepartmentStart',
+  'وضع العامل الحالي': 'currentStatus',
+  'العمل المكلف به': 'assignedWork',
+  'رقم الجوال': 'mobile',
+  'العنوان': 'address',
+  'ملاحظات': 'notes',
+};
+
+const IMPORT_DATE_FIELDS = new Set(['dateOfBirth', 'appointmentDecisionDate', 'firstStateStart', 'firstDirectorateStart', 'firstDepartmentStart']);
+
+function parseCellDate(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'number') {
+    const d = XLSX.SSF.parse_date_code(val);
+    if (!d) return null;
+    return new Date(d.y, d.m - 1, d.d);
+  }
+  if (typeof val === 'string' && val.trim()) {
+    const d = new Date(val.trim());
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
 
 function sanitizePath(name: string) {
   return name.replace(/[^a-z0-9_\u0600-\u06FF\s-]/gi, '_').trim();
@@ -184,6 +237,94 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.use("/api", (req, res, next) => {
     if (req.path.startsWith("/auth")) return next();
     ensureAuthenticated(req, res, next);
+  });
+
+  // Employee Import Route
+  app.post('/api/employees/import', uploadMemory.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "لم يتم رفع أي ملف" });
+
+    try {
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as Record<string, any>[];
+
+      if (rows.length === 0) {
+        return res.status(400).json({ message: "الملف لا يحتوي على بيانات" });
+      }
+
+      let imported = 0;
+      const errors: Array<{ row: number; message: string }> = [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNum = i + 2;
+        const data: Record<string, any> = {};
+
+        for (const [arabicCol, fieldName] of Object.entries(IMPORT_COLUMN_MAP)) {
+          const val = row[arabicCol];
+          if (IMPORT_DATE_FIELDS.has(fieldName)) {
+            data[fieldName] = parseCellDate(val);
+          } else {
+            data[fieldName] = val !== undefined && val !== null ? String(val).trim() : '';
+          }
+        }
+
+        // Validate nationalId
+        if (!data.nationalId || !/^[0-9]{11}$/.test(data.nationalId)) {
+          errors.push({ row: rowNum, message: `الرقم الوطني غير صحيح: "${data.nationalId}"` });
+          continue;
+        }
+        if (!data.fullName) {
+          errors.push({ row: rowNum, message: 'الاسم والكنية مطلوب' });
+          continue;
+        }
+
+        // Defaults for required fields
+        if (!data.gender) data.gender = 'ذكر';
+        if (!data.currentStatus) data.currentStatus = 'على رأس عمله';
+        if (!data.category) data.category = 'أولى';
+        if (!data.employmentStatus) data.employmentStatus = 'مثبت';
+        if (!data.assignedWork) data.assignedWork = 'ورشة القسم الهندسي';
+        if (!data.certificateType) data.certificateType = '';
+        if (!data.certificate) data.certificate = '';
+        if (!data.specialization) data.specialization = '';
+        if (!data.jobTitle) data.jobTitle = '';
+        if (!data.mobile) data.mobile = '';
+        if (!data.address) data.address = '';
+        if (!data.fatherName) data.fatherName = '';
+        if (!data.motherName) data.motherName = '';
+        if (!data.placeOfBirth) data.placeOfBirth = '';
+        if (!data.registryPlaceAndNumber) data.registryPlaceAndNumber = '';
+        if (!data.appointmentDecisionNumber) data.appointmentDecisionNumber = '';
+        if (!data.shamCashNumber) data.shamCashNumber = '';
+
+        try {
+          const emp = await storage.createEmployee(data as any);
+          imported++;
+          if (req.user) {
+            await storage.createAuditLog({
+              userId: req.user.id,
+              action: 'CREATE',
+              entityType: 'EMPLOYEE',
+              entityId: String(emp.id),
+              newValues: { source: 'excel_import', fullName: data.fullName },
+            });
+          }
+        } catch (e: any) {
+          if (e.code === '23505') {
+            errors.push({ row: rowNum, message: `الرقم الوطني "${data.nationalId}" مدخل مسبقاً` });
+          } else {
+            errors.push({ row: rowNum, message: e.message || 'خطأ غير معروف' });
+          }
+        }
+      }
+
+      res.json({ imported, failed: errors.length, total: rows.length, errors });
+    } catch (e: any) {
+      console.error('Import error:', e);
+      res.status(500).json({ message: 'خطأ في معالجة ملف Excel: ' + (e.message || 'خطأ غير معروف') });
+    }
   });
 
   // Employee Routes

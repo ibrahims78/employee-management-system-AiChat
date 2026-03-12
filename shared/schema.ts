@@ -88,6 +88,10 @@ export const insertEmployeeSchema = createInsertSchema(employees, {
   nationalId: z.string().min(1, "الرقم الوطني مطلوب").refine(val => val.length === 11 && /^[0-9]+$/.test(val), {
     message: "الرقم الوطني يجب أن يكون 11 خانة رقمية"
   }),
+  shamCashNumber: z.string()
+    .min(1, "رقم شام كاش مطلوب")
+    .refine(val => /^[0-9]+$/.test(val), { message: "رقم شام كاش يجب أن يحتوي على أرقام فقط" })
+    .refine(val => val.length === 16, { message: "رقم شام كاش يجب أن يكون 16 رقماً بالضبط" }),
   certificate: z.string().optional(),
   jobTitle: z.string().optional(),
   specialization: z.string().optional(),

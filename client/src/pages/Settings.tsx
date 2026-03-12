@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Download, RefreshCw, Clock, ShieldAlert, Trash2, Database, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Loader2, Download, RefreshCw, Clock, ShieldAlert, Trash2, Database, AlertTriangle, CheckCircle2, Upload, FileSpreadsheet } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,197 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
+// Arabic column headers for the Excel template in the same order as the form
+const TEMPLATE_COLUMNS = [
+  { header: "الاسم والكنية", example: "أحمد محمد علي", note: "مطلوب" },
+  { header: "اسم الأب", example: "محمد", note: "" },
+  { header: "اسم الأم", example: "فاطمة", note: "" },
+  { header: "مكان الولادة", example: "دمشق", note: "" },
+  { header: "تاريخ الولادة", example: "1985-06-15", note: "YYYY-MM-DD" },
+  { header: "محل ورقم القيد", example: "دمشق 12345", note: "" },
+  { header: "الرقم الوطني", example: "10000000001", note: "مطلوب - 11 رقم" },
+  { header: "رقم شام كاش", example: "1234567890123456", note: "16 رقم" },
+  { header: "الجنس", example: "ذكر", note: "ذكر أو أنثى" },
+  { header: "الشهادة", example: "جامعة", note: "" },
+  { header: "نوع الشهادة", example: "هندسة", note: "" },
+  { header: "الاختصاص", example: "مهندس مدني", note: "" },
+  { header: "الصفة الوظيفية", example: "مهندس", note: "" },
+  { header: "الفئة", example: "أولى", note: "أولى/ثانية/ثالثة/رابعة" },
+  { header: "الوضع الوظيفي", example: "مثبت", note: "مثبت أو عقد" },
+  { header: "رقم قرار التعيين", example: "1234", note: "" },
+  { header: "تاريخ قرار التعيين", example: "2010-01-01", note: "YYYY-MM-DD" },
+  { header: "أول مباشرة بالدولة", example: "2010-01-01", note: "YYYY-MM-DD" },
+  { header: "أول مباشرة بالمديرية", example: "2010-01-01", note: "YYYY-MM-DD" },
+  { header: "أول مباشرة بالقسم", example: "2010-01-01", note: "YYYY-MM-DD" },
+  { header: "وضع العامل الحالي", example: "على رأس عمله", note: "على رأس عمله/نقل/استقالة/إجازة بلا أجر" },
+  { header: "العمل المكلف به", example: "ورشة القسم الهندسي", note: "" },
+  { header: "رقم الجوال", example: "0912345678", note: "" },
+  { header: "العنوان", example: "دمشق - المزة", note: "" },
+  { header: "ملاحظات", example: "", note: "" },
+];
+
+function downloadTemplate() {
+  const headers = TEMPLATE_COLUMNS.map(c => c.header);
+  const exampleRow = TEMPLATE_COLUMNS.map(c => c.example);
+  const noteRow = TEMPLATE_COLUMNS.map(c => c.note ? `(${c.note})` : "");
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+
+  // Style header row width
+  ws['!cols'] = headers.map(() => ({ wch: 22 }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "نموذج الموظفين");
+  const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "نموذج_استيراد_الموظفين.xlsx");
+}
+
+function ImportEmployeesCard() {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; failed: number; total: number; errors: Array<{ row: number; message: string }> } | null>(null);
+
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/employees/import", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "خطأ في الاستيراد" }));
+        throw new Error(err.message || "خطأ في الاستيراد");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setImportResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      if (data.failed === 0) {
+        toast({ title: `تم استيراد ${data.imported} موظف بنجاح` });
+      } else {
+        toast({
+          title: `تم استيراد ${data.imported} من أصل ${data.total} موظف`,
+          description: `فشل استيراد ${data.failed} سجل`,
+          variant: data.imported > 0 ? "default" : "destructive",
+        });
+      }
+      setSelectedFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+    },
+    onError: (e: any) => {
+      toast({ title: "فشل الاستيراد", description: e.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card className="overflow-hidden border-primary/10 shadow-lg hover-elevate transition-all duration-300">
+      <CardHeader className="bg-primary/5 border-b border-primary/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <FileSpreadsheet className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-xl font-bold">استيراد بيانات الموظفين</CardTitle>
+            <CardDescription>استيراد بيانات موظفين من ملف Excel</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-5">
+        <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-2">
+          <div className="flex items-center gap-2 font-bold text-sm text-blue-700 dark:text-blue-400">
+            <CheckCircle2 className="h-4 w-4" />
+            خطوات الاستيراد
+          </div>
+          <ol className="text-xs text-muted-foreground leading-relaxed space-y-1 list-decimal list-inside">
+            <li>قم بتحميل نموذج Excel أدناه</li>
+            <li>أدخل بيانات الموظفين في الصفوف التالية للنموذج</li>
+            <li>احفظ الملف ثم ارفعه هنا واضغط "استيراد"</li>
+          </ol>
+        </div>
+
+        <Button
+          variant="outline"
+          className="w-full gap-2 border-primary/20 hover:border-primary/50 text-primary font-bold"
+          onClick={downloadTemplate}
+          data-testid="btn-download-template"
+        >
+          <Download className="h-4 w-4" />
+          تحميل نموذج Excel للتعبئة
+        </Button>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-bold">رفع ملف Excel المعبأ</Label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(e) => {
+              setSelectedFile(e.target.files?.[0] || null);
+              setImportResult(null);
+            }}
+            className="block w-full text-sm text-muted-foreground file:mr-0 file:ml-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer border rounded-lg p-1"
+            data-testid="input-import-file"
+          />
+          {selectedFile && (
+            <p className="text-xs text-muted-foreground">
+              الملف المختار: <span className="font-bold">{selectedFile.name}</span>
+            </p>
+          )}
+        </div>
+
+        <Button
+          className="w-full gap-2 font-bold"
+          disabled={!selectedFile || importMutation.isPending}
+          onClick={() => selectedFile && importMutation.mutate(selectedFile)}
+          data-testid="btn-import-employees"
+        >
+          {importMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+          {importMutation.isPending ? "جاري الاستيراد..." : "استيراد البيانات"}
+        </Button>
+
+        {importResult && (
+          <div className="space-y-3 pt-2 border-t">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-muted/50 rounded-lg p-2">
+                <div className="text-lg font-black text-foreground">{importResult.total}</div>
+                <div className="text-xs text-muted-foreground">إجمالي الصفوف</div>
+              </div>
+              <div className="bg-green-500/10 rounded-lg p-2">
+                <div className="text-lg font-black text-green-600">{importResult.imported}</div>
+                <div className="text-xs text-muted-foreground">تم استيراده</div>
+              </div>
+              <div className={`rounded-lg p-2 ${importResult.failed > 0 ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                <div className={`text-lg font-black ${importResult.failed > 0 ? 'text-destructive' : 'text-foreground'}`}>{importResult.failed}</div>
+                <div className="text-xs text-muted-foreground">فشل</div>
+              </div>
+            </div>
+            {importResult.errors.length > 0 && (
+              <div className="max-h-40 overflow-y-auto rounded-lg border bg-destructive/5 divide-y">
+                {importResult.errors.map((err, i) => (
+                  <div key={i} className="px-3 py-2 text-xs flex gap-2">
+                    <span className="font-bold text-destructive shrink-0">صف {err.row}:</span>
+                    <span className="text-muted-foreground">{err.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Settings() {
   const { user } = useAuth();
@@ -72,20 +263,19 @@ export default function Settings() {
       const res = await apiRequest("POST", "/api/settings/backup/restore", { filename });
       return res.json();
     },
-    onSuccess: (data) => {
-      toast({ 
-        title: "تمت الاستعادة بنجاح", 
+    onSuccess: () => {
+      toast({
+        title: "تمت الاستعادة بنجاح",
         description: "تم تحديث كافة بيانات النظام من النسخة المختارة.",
       });
       setRestoreFile(null);
-      // Re-fetch all data to reflect changes
       queryClient.invalidateQueries();
     },
     onError: (error: any) => {
-      toast({ 
-        title: "فشل استعادة النسخة الاحتياطية", 
+      toast({
+        title: "فشل استعادة النسخة الاحتياطية",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive",
       });
     },
   });
@@ -123,12 +313,12 @@ export default function Settings() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-foreground">إعدادات النظام</h1>
-            <p className="text-muted-foreground mt-1 font-medium">إدارة النسخ الاحتياطي وتكوين النظام بشكل احترافي.</p>
+            <p className="text-muted-foreground mt-1 font-medium">إدارة النسخ الاحتياطي واستيراد البيانات وتكوين النظام.</p>
           </div>
-          <Button 
-            onClick={() => backupMutation.mutate()} 
+          <Button
+            onClick={() => backupMutation.mutate()}
             disabled={backupMutation.isPending}
-            className="h-11 px-6 text-base font-bold shadow-lg shadow-primary/20 active-elevate-2"
+            className="h-11 px-6 text-base font-bold shadow-lg shadow-primary/20"
           >
             {backupMutation.isPending ? (
               <Loader2 className="ml-2 h-5 w-5 animate-spin" />
@@ -138,6 +328,9 @@ export default function Settings() {
             إنشاء نسخة احتياطية الآن
           </Button>
         </div>
+
+        {/* Import Card - full width at top */}
+        <ImportEmployeesCard />
 
         <div className="grid gap-6 md:grid-cols-3">
           <Card className="md:col-span-2 overflow-hidden border-primary/10 shadow-lg hover-elevate transition-all duration-300">
@@ -192,17 +385,17 @@ export default function Settings() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="font-bold hover:bg-primary hover:text-primary-foreground border-primary/20"
                           onClick={() => setRestoreFile(backup.filename)}
                         >
                           استعادة
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="text-destructive hover:bg-destructive/10"
                           onClick={() => setDeleteFile(backup.filename)}
                         >
@@ -234,7 +427,7 @@ export default function Settings() {
                   <Label className="text-base font-bold">النسخ الدوري</Label>
                   <p className="text-xs text-muted-foreground">نسخة تلقائية كل 24 ساعة.</p>
                 </div>
-                <Switch 
+                <Switch
                   checked={(backupConfig as any)?.enabled || false}
                   onCheckedChange={(enabled) => updateConfigMutation.mutate({ ...(backupConfig as any), enabled })}
                   disabled={isLoadingConfig || updateConfigMutation.isPending}
@@ -282,7 +475,7 @@ export default function Settings() {
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel className="font-bold border-muted-border">إلغاء الأمر</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               className="bg-primary text-primary-foreground font-bold hover:bg-primary/90"
               onClick={() => restoreFile && restoreMutation.mutate(restoreFile)}
             >
@@ -303,7 +496,7 @@ export default function Settings() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deleteFile && deleteBackupMutation.mutate(deleteFile)}
             >
