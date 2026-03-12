@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, FileDown, FileText, Trash2, Pencil, Archive, AlertCircle, Briefcase } from "lucide-react";
+import { Plus, Search, FileDown, FileText, Trash2, Pencil, Archive, Settings2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertEmployeeSchema, type InsertEmployee, type Employee } from "@shared/schema";
@@ -22,6 +22,253 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useQuery, useMutation } from "@tanstack/react-query";
+
+// Default options for each dropdown (used when no custom options are saved)
+const DEFAULT_OPTIONS: Record<string, string[]> = {
+  gender: ["ذكر", "أنثى"],
+  certificate: [
+    "اعدادية",
+    "ثانوية",
+    "ثانوية صناعية",
+    "جامعة",
+    "مراقب فني",
+    "مستخدم",
+    "معهد تدفئة مركزية",
+    "معهد متوسط",
+    "معهد مهني فوق الإعدادية",
+    "مهني",
+  ],
+  certificateType: [
+    "بكلوريا صناعية ميكانيك",
+    "ثانوية ادبي",
+    "ثانوية علمي",
+    "مساعد فني تدفئة مركزية",
+    "مستخدم",
+    "معهد متوسط صحي",
+    "معهد متوسط صناعات تطبيقية",
+    "معهد متوسط للهندسة الكهربائية والميكانيكية",
+    "معهد متوسط مراقبين فنيين",
+    "معهد متوسط هندسي",
+    "مهني",
+    "هندسة",
+  ],
+  specialization: [
+    "بكلوريا صناعية ميكانيك",
+    "دهان",
+    "عامل مهني",
+    "كاتب",
+    "كهربائي",
+    "مساعد فني تدفئة مركزية",
+    "مساعد فني صيانة أجهزة طبية",
+    "مساعد مهندس كهرباء",
+    "مساعد مهندس مدني",
+    "مستخدم",
+    "معهد كهرباء صناعية",
+    "معهد متوسط للهندسة الكهربائية والميكانيكية",
+    "مهندس اتصالات",
+    "مهندس تحكم الي وحواسيب",
+    "مهندس تكنولوجيا المعلومات والاتصالات",
+    "مهندس طبية",
+    "مهندس عمارة",
+    "مهندس كهرباء/الكترون",
+    "مهندس كهرباء/طاقة",
+    "مهندس مدني",
+    "مهندس ميكانيك",
+    "نجار",
+  ],
+  category: ["أولى", "ثانية", "ثالثة", "رابعة"],
+  employmentStatus: ["مثبت", "عقد"],
+  currentStatus: ["على رأس عمله", "إجازة بلا أجر", "نقل", "استقالة"],
+  assignedWork: [
+    "رئيس القسم الهندسي",
+    "صيانة وإشراف ومتابعة لجان",
+    "مستخدم",
+    "ورشة القسم الهندسي",
+  ],
+};
+
+// Hook to fetch/update dropdown options from settings
+function useDropdownOptions(key: string) {
+  const { data, isLoading } = useQuery<string[] | null>({
+    queryKey: ['/api/settings', key],
+    queryFn: async () => {
+      const res = await fetch(`/api/settings/dropdown_${key}`, { credentials: 'include' });
+      if (!res.ok) return null;
+      const val = await res.json();
+      return Array.isArray(val) ? val : null;
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (options: string[]) => {
+      return apiRequest('POST', '/api/settings', { key: `dropdown_${key}`, value: options });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings', key] });
+    },
+  });
+
+  const options = (data && data.length > 0) ? data : DEFAULT_OPTIONS[key] ?? [];
+
+  return { options, isLoading, updateOptions: mutation.mutateAsync, isUpdating: mutation.isPending };
+}
+
+// Dialog to edit dropdown options
+function EditDropdownDialog({
+  fieldKey,
+  label,
+}: {
+  fieldKey: string;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { options, updateOptions, isUpdating } = useDropdownOptions(fieldKey);
+  const [localOptions, setLocalOptions] = useState<string[]>([]);
+  const [newOption, setNewOption] = useState("");
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      setLocalOptions([...options]);
+    }
+  }, [open, options]);
+
+  const handleAdd = () => {
+    const trimmed = newOption.trim();
+    if (!trimmed) return;
+    if (localOptions.includes(trimmed)) {
+      toast({ title: "الخيار موجود مسبقاً", variant: "destructive" });
+      return;
+    }
+    setLocalOptions(prev => [...prev, trimmed]);
+    setNewOption("");
+  };
+
+  const handleDelete = (idx: number) => {
+    setLocalOptions(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSave = async () => {
+    if (localOptions.length === 0) {
+      toast({ title: "يجب أن تحتوي القائمة على خيار واحد على الأقل", variant: "destructive" });
+      return;
+    }
+    await updateOptions(localOptions);
+    toast({ title: "تم حفظ خيارات القائمة بنجاح" });
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-9 w-9 shrink-0"
+        onClick={() => setOpen(true)}
+        title={`تعديل خيارات ${label}`}
+        data-testid={`btn-edit-dropdown-${fieldKey}`}
+      >
+        <Settings2 className="h-4 w-4 text-muted-foreground" />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-right">تعديل خيارات: {label}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
+            {localOptions.length === 0 ? (
+              <p className="text-center text-muted-foreground p-4 text-sm">لا توجد خيارات</p>
+            ) : (
+              localOptions.map((opt, idx) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <span className="text-right flex-1">{opt}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={() => handleDelete(idx)}
+                    data-testid={`btn-delete-option-${fieldKey}-${idx}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="أضف خياراً جديداً..."
+              value={newOption}
+              onChange={(e) => setNewOption(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+              className="text-right flex-1"
+              data-testid={`input-new-option-${fieldKey}`}
+            />
+            <Button type="button" onClick={handleAdd} variant="outline" data-testid={`btn-add-option-${fieldKey}`}>
+              إضافة
+            </Button>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            <Button type="button" onClick={handleSave} disabled={isUpdating} data-testid={`btn-save-options-${fieldKey}`}>
+              {isUpdating ? "جاري الحفظ..." : "حفظ"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// Wrapper for FormField + EditDropdownDialog side by side
+function EditableSelectFormField({
+  control,
+  name,
+  label,
+  dropdownKey,
+  defaultValue,
+}: {
+  control: any;
+  name: string;
+  label: string;
+  dropdownKey: string;
+  defaultValue?: string;
+}) {
+  const { options } = useDropdownOptions(dropdownKey);
+
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <FormItem className="text-right">
+          <FormLabel>{label}</FormLabel>
+          <div className="flex gap-2 items-center">
+            <Select onValueChange={field.onChange} value={field.value || ""}>
+              <FormControl>
+                <SelectTrigger className="text-right flex-1" data-testid={`select-${name}`}>
+                  <SelectValue placeholder="اختر..." />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {options.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <EditDropdownDialog fieldKey={dropdownKey} label={label} />
+          </div>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
 
 // Columns for export picker
 const EXPORT_COLUMNS = [
@@ -34,6 +281,7 @@ const EXPORT_COLUMNS = [
   { id: "nationalId", label: "الرقم الوطني" },
   { id: "shamCashNumber", label: "رقم شام كاش" },
   { id: "gender", label: "الجنس" },
+  { id: "certificate", label: "الشهادة" },
   { id: "certificateType", label: "نوع الشهادة" },
   { id: "specialization", label: "الاختصاص" },
   { id: "jobTitle", label: "الصفة الوظيفية" },
@@ -64,12 +312,12 @@ function EmployeeFormDialog({
   const { createEmployee, updateEmployee, deleteAttachment, isCreating, isUpdating } = useEmployees();
   const { toast } = useToast();
   
-    const form = useForm<InsertEmployee>({
+  const form = useForm<InsertEmployee>({
     resolver: zodResolver(insertEmployeeSchema),
     defaultValues: {
       fullName: "", fatherName: "", motherName: "", placeOfBirth: "",
       registryPlaceAndNumber: "", nationalId: "", shamCashNumber: "", gender: "ذكر",
-      certificateType: "جامعة", specialization: "", jobTitle: "", category: "أولى",
+      certificate: "", certificateType: "", specialization: "", jobTitle: "", category: "أولى",
       employmentStatus: "مثبت", appointmentDecisionNumber: "",
       currentStatus: "على رأس عمله", assignedWork: "ورشة القسم الهندسي", mobile: "", address: "", notes: "",
       dateOfBirth: null as any, appointmentDecisionDate: null as any, firstStateStart: null as any,
@@ -77,7 +325,6 @@ function EmployeeFormDialog({
     }
   });
 
-  // Update form values when employee changes
   useEffect(() => {
     if (employee && open) {
       form.reset({
@@ -89,7 +336,8 @@ function EmployeeFormDialog({
         registryPlaceAndNumber: employee.registryPlaceAndNumber || "",
         nationalId: employee.nationalId || "",
         gender: (employee.gender as "ذكر" | "أنثى") || "ذكر",
-        certificateType: (employee.certificateType as any) || "جامعة",
+        certificate: (employee as any).certificate || "",
+        certificateType: (employee.certificateType as any) || "",
         specialization: employee.specialization || "",
         jobTitle: employee.jobTitle || "",
         category: (employee.category as any) || "أولى",
@@ -112,7 +360,7 @@ function EmployeeFormDialog({
       form.reset({
         fullName: "", fatherName: "", motherName: "", placeOfBirth: "",
         registryPlaceAndNumber: "", nationalId: "", shamCashNumber: "", gender: "ذكر",
-        certificateType: "جامعة", specialization: "", jobTitle: "", category: "أولى",
+        certificate: "", certificateType: "", specialization: "", jobTitle: "", category: "أولى",
         employmentStatus: "مثبت", appointmentDecisionNumber: "",
         currentStatus: "على رأس عمله", assignedWork: "ورشة القسم الهندسي", mobile: "", address: "", notes: "",
         dateOfBirth: null as any, appointmentDecisionDate: null as any, firstStateStart: null as any,
@@ -126,31 +374,21 @@ function EmployeeFormDialog({
   const handleDeleteAttachment = async (path: string) => {
     if (!employee) return;
     if (!confirm("هل أنت متأكد من حذف هذا المرفق؟")) return;
-
-    // Extract the filename from the path
     const fileName = path.split('/').pop();
     if (!fileName) return;
-
     try {
       await deleteAttachment({ id: employee.id, index: fileName });
-    } catch (error) {
-      // Error handled in hook
-    }
+    } catch (error) {}
   };
 
   function onSubmit(data: InsertEmployee) {
-    console.log("Form data on submit:", data);
-    
     const formData = new FormData();
-    
-    // Append all fields from the validated data object
     Object.entries(data).forEach(([key, value]) => {
       if (value instanceof Date) {
         formData.append(key, value.toISOString());
       } else if (value !== null && value !== undefined && value !== "") {
         formData.append(key, String(value));
-      } else if (value === "" || value === null) {
-        // Explicitly send empty string as null for backend to handle
+      } else {
         formData.append(key, "");
       }
     });
@@ -162,21 +400,13 @@ function EmployeeFormDialog({
     }
 
     if (employee) {
-      updateEmployee({ id: employee.id, data: formData as any }, { 
-        onSuccess: () => {
-          onOpenChange(false);
-          setDocumentFiles([]);
-        },
-        onError: (error: any) => {
-          console.error("Update error:", error);
-        }
+      updateEmployee({ id: employee.id, data: formData as any }, {
+        onSuccess: () => { onOpenChange(false); setDocumentFiles([]); },
+        onError: (error: any) => { console.error("Update error:", error); }
       });
     } else {
-      createEmployee(formData as any, { 
-        onSuccess: () => {
-          onOpenChange(false);
-          setDocumentFiles([]);
-        },
+      createEmployee(formData as any, {
+        onSuccess: () => { onOpenChange(false); setDocumentFiles([]); },
         onError: (error: any) => {
           console.error("Create error:", error);
           if (error.response?.data?.field) {
@@ -194,7 +424,7 @@ function EmployeeFormDialog({
     console.error("Form validation errors:", errors);
     toast({
       title: "خطأ في الإدخال",
-      description: "يرجى التحقق من كافة الحقول المطلوبة (المشار إليها بالنجمة)",
+      description: "يرجى التحقق من كافة الحقول المطلوبة",
       variant: "destructive"
     });
   };
@@ -219,48 +449,55 @@ function EmployeeFormDialog({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField control={form.control} name="fullName" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>الاسم والكنية</FormLabel><FormControl><Input {...field} className="text-right" autoComplete="off" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>الاسم والكنية</FormLabel><FormControl><Input {...field} className="text-right" autoComplete="off" data-testid="input-fullName" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="fatherName" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>اسم الأب</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>اسم الأب</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-fatherName" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="motherName" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>اسم الأم</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>اسم الأم</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-motherName" /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="gender" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>الجنس</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="text-right"><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="ذكر">ذكر</SelectItem><SelectItem value="أنثى">أنثى</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )} />
+
+                  {/* Gender - editable dropdown */}
+                  <EditableSelectFormField
+                    control={form.control}
+                    name="gender"
+                    label="الجنس"
+                    dropdownKey="gender"
+                  />
+
                   <FormField control={form.control} name="placeOfBirth" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>مكان الولادة</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>مكان الولادة</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-placeOfBirth" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
                     <FormItem className="text-right">
                       <FormLabel>تاريخ الولادة</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="date" 
-                          className="text-right" 
-                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""} 
-                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} 
+                        <Input
+                          type="date"
+                          className="text-right"
+                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                          data-testid="input-dateOfBirth"
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="registryPlaceAndNumber" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>محل ورقم القيد</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>محل ورقم القيد</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-registryPlaceAndNumber" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="nationalId" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>الرقم الوطني <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>الرقم الوطني <span className="text-destructive">*</span></FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-nationalId" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="shamCashNumber" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>رقم شام كاش</FormLabel><FormControl><Input {...field} className="text-right" value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>رقم شام كاش</FormLabel><FormControl><Input {...field} className="text-right" value={field.value || ''} data-testid="input-shamCashNumber" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="mobile" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>رقم الجوال</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>رقم الجوال</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-mobile" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="address" render={({ field }) => (
-                    <FormItem className="md:col-span-2 text-right"><FormLabel>العنوان</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="md:col-span-2 text-right"><FormLabel>العنوان</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-address" /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
               </div>
@@ -268,37 +505,85 @@ function EmployeeFormDialog({
               {/* Section 2: Professional Data */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b pb-2">
-                  <Briefcase className="h-5 w-5 text-primary" />
+                  <FileText className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-bold">ثانياً: البيانات الوظيفية</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField control={form.control} name="jobTitle" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>الصفة الوظيفية</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>الصفة الوظيفية</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-jobTitle" /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="specialization" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>الاختصاص</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="category" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>الفئة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="text-right"><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="أولى">أولى</SelectItem><SelectItem value="ثانية">ثانية</SelectItem><SelectItem value="ثالثة">ثالثة</SelectItem><SelectItem value="رابعة">رابعة</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="currentStatus" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>وضع العامل الحالي</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="text-right"><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="على رأس عمله">على رأس عمله</SelectItem><SelectItem value="إجازة بلا أجر">إجازة بلا أجر</SelectItem><SelectItem value="نقل">نقل</SelectItem><SelectItem value="استقالة">استقالة</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="assignedWork" render={({ field }) => (
-                    <FormItem className="md:col-span-2 text-right"><FormLabel>العمل المكلف به</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="text-right"><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="رئيس القسم الهندسي">رئيس القسم الهندسي</SelectItem><SelectItem value="صيانة وإشراف ومتابعة لجان">صيانة وإشراف ومتابعة لجان</SelectItem><SelectItem value="مستخدم">مستخدم</SelectItem><SelectItem value="ورشة القسم الهندسي">ورشة القسم الهندسي</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )} />
+
+                  {/* Certificate (الشهادة) - new field */}
+                  <EditableSelectFormField
+                    control={form.control}
+                    name="certificate"
+                    label="الشهادة"
+                    dropdownKey="certificate"
+                  />
+
+                  {/* Certificate Type (نوع الشهادة) - updated options */}
+                  <EditableSelectFormField
+                    control={form.control}
+                    name="certificateType"
+                    label="نوع الشهادة"
+                    dropdownKey="certificateType"
+                  />
+
+                  {/* Specialization (الاختصاص) - now a dropdown */}
+                  <EditableSelectFormField
+                    control={form.control}
+                    name="specialization"
+                    label="الاختصاص"
+                    dropdownKey="specialization"
+                  />
+
+                  {/* Category (الفئة) - editable dropdown */}
+                  <EditableSelectFormField
+                    control={form.control}
+                    name="category"
+                    label="الفئة"
+                    dropdownKey="category"
+                  />
+
+                  {/* Employment Status (الوضع الوظيفي) - editable dropdown */}
+                  <EditableSelectFormField
+                    control={form.control}
+                    name="employmentStatus"
+                    label="الوضع الوظيفي"
+                    dropdownKey="employmentStatus"
+                  />
+
+                  {/* Current Status (وضع العامل الحالي) - editable dropdown */}
+                  <EditableSelectFormField
+                    control={form.control}
+                    name="currentStatus"
+                    label="وضع العامل الحالي"
+                    dropdownKey="currentStatus"
+                  />
+
+                  {/* Assigned Work (العمل المكلف به) - editable dropdown */}
+                  <div className="md:col-span-2">
+                    <EditableSelectFormField
+                      control={form.control}
+                      name="assignedWork"
+                      label="العمل المكلف به"
+                      dropdownKey="assignedWork"
+                    />
+                  </div>
+
                   <FormField control={form.control} name="appointmentDecisionNumber" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>رقم قرار التعيين</FormLabel><FormControl><Input {...field} className="text-right" /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>رقم قرار التعيين</FormLabel><FormControl><Input {...field} className="text-right" data-testid="input-appointmentDecisionNumber" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="appointmentDecisionDate" render={({ field }) => (
                     <FormItem className="text-right">
                       <FormLabel>تاريخ قرار التعيين</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="date" 
-                          className="text-right" 
-                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""} 
-                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} 
+                        <Input
+                          type="date"
+                          className="text-right"
+                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                          data-testid="input-appointmentDecisionDate"
                         />
                       </FormControl>
                       <FormMessage />
@@ -308,11 +593,12 @@ function EmployeeFormDialog({
                     <FormItem className="text-right">
                       <FormLabel>أول مباشرة بالدولة</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="date" 
-                          className="text-right" 
-                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""} 
-                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} 
+                        <Input
+                          type="date"
+                          className="text-right"
+                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                          data-testid="input-firstStateStart"
                         />
                       </FormControl>
                       <FormMessage />
@@ -322,11 +608,12 @@ function EmployeeFormDialog({
                     <FormItem className="text-right">
                       <FormLabel>أول مباشرة بالمديرية</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="date" 
-                          className="text-right" 
-                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""} 
-                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} 
+                        <Input
+                          type="date"
+                          className="text-right"
+                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                          data-testid="input-firstDirectorateStart"
                         />
                       </FormControl>
                       <FormMessage />
@@ -336,18 +623,19 @@ function EmployeeFormDialog({
                     <FormItem className="text-right">
                       <FormLabel>أول مباشرة بالقسم</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="date" 
-                          className="text-right" 
-                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""} 
-                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)} 
+                        <Input
+                          type="date"
+                          className="text-right"
+                          value={field.value ? format(new Date(field.value), "yyyy-MM-dd") : ""}
+                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                          data-testid="input-firstDepartmentStart"
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="notes" render={({ field }) => (
-                    <FormItem className="md:col-span-2 text-right"><FormLabel>ملاحظات</FormLabel><FormControl><Input {...field} className="text-right" value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="md:col-span-2 text-right"><FormLabel>ملاحظات</FormLabel><FormControl><Input {...field} className="text-right" value={field.value || ''} data-testid="input-notes" /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
               </div>
@@ -360,25 +648,26 @@ function EmployeeFormDialog({
                 </div>
                 <div className="text-right">
                   <Label>رفع مستندات الموظف</Label>
-                  <Input type="file" multiple onChange={(e) => setDocumentFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="mt-1" />
+                  <Input type="file" multiple onChange={(e) => setDocumentFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="mt-1" data-testid="input-documents" />
                   
                   {employee?.documentPaths && Array.isArray(employee.documentPaths) && (employee.documentPaths as string[]).length > 0 ? (
                     <div className="mt-4">
                       <Label className="text-sm font-bold">المستندات المرفوعة حالياً:</Label>
                       <div className="grid grid-cols-1 gap-2 mt-2">
-                        {employee.documentPaths && (employee.documentPaths as string[]).map((path, idx) => (
+                        {(employee.documentPaths as string[]).map((path, idx) => (
                           <div key={idx} className="flex items-center justify-between bg-muted/50 p-2 rounded-lg text-sm">
                             <a href={path} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-2">
                               <FileText className="h-4 w-4" />
                               {path.split('/').pop() || `مستند ${idx + 1}`}
                             </a>
                             {user?.role === 'admin' && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                type="button" 
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
                                 onClick={() => handleDeleteAttachment(path)}
                                 className="text-destructive hover:bg-destructive/10"
+                                data-testid={`btn-delete-attachment-${idx}`}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -393,8 +682,8 @@ function EmployeeFormDialog({
             </div>
             
             <div className="flex justify-end gap-3 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
-              <Button type="submit" disabled={isPending}>{isPending ? "جاري الحفظ..." : "حفظ البيانات"}</Button>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="btn-cancel-form">إلغاء</Button>
+              <Button type="submit" disabled={isPending} data-testid="btn-submit-form">{isPending ? "جاري الحفظ..." : "حفظ البيانات"}</Button>
             </div>
           </form>
         </Form>
@@ -439,7 +728,6 @@ function ExcelExportDialog({
           if (val && (val instanceof Date || (typeof val === 'string' && val.includes('T')))) {
             try {
               const dateObj = new Date(val);
-              // Check if it's 1970-01-01 (Unix epoch) which often represents null/empty in some systems
               if (dateObj.getTime() === 0 || dateObj.getFullYear() <= 1970) {
                 val = "";
               } else {
@@ -469,7 +757,7 @@ function ExcelExportDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 border-primary/20 hover:border-primary/50 text-primary">
+        <Button variant="outline" className="gap-2 border-primary/20 hover:border-primary/50 text-primary" data-testid="btn-open-export">
           <FileDown className="h-4 w-4" />
           تصدير إكسل
         </Button>
@@ -539,7 +827,7 @@ function ExcelExportDialog({
 
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-          <Button onClick={handleExport} disabled={selectedColumns.length === 0 || selectedEmployeeIds.length === 0}>تصدير الملف ({selectedEmployeeIds.length} موظف)</Button>
+          <Button onClick={handleExport} disabled={selectedColumns.length === 0 || selectedEmployeeIds.length === 0} data-testid="btn-export">تصدير الملف ({selectedEmployeeIds.length} موظف)</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -556,7 +844,7 @@ const generateWordDoc = async (employee: Employee) => {
           heading: HeadingLevel.HEADING_1,
           alignment: AlignmentType.CENTER,
         }),
-        new Paragraph({ text: "" }), // spacer
+        new Paragraph({ text: "" }),
         new Paragraph({
           children: [
             new TextRun({ text: "البيانات الشخصية:", bold: true, size: 32, rightToLeft: true, color: "2b6cb0" }),
@@ -583,7 +871,7 @@ const generateWordDoc = async (employee: Employee) => {
           alignment: AlignmentType.RIGHT,
           spacing: { before: 100 }
         })),
-        new Paragraph({ text: "" }), // spacer
+        new Paragraph({ text: "" }),
         new Paragraph({
           children: [
             new TextRun({ text: "البيانات الوظيفية:", bold: true, size: 32, rightToLeft: true, color: "2b6cb0" }),
@@ -591,6 +879,7 @@ const generateWordDoc = async (employee: Employee) => {
           alignment: AlignmentType.RIGHT,
         }),
         ...[
+          { label: "الشهادة", value: (employee as any).certificate },
           { label: "نوع الشهادة", value: employee.certificateType },
           { label: "الاختصاص", value: employee.specialization },
           { label: "الصفة الوظيفية", value: employee.jobTitle },
@@ -652,7 +941,6 @@ export default function Employees() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | undefined>(undefined);
 
-  // Filter employees
   const filteredEmployees = employees.filter(emp => {
     const matchesSearch = emp.fullName.toLowerCase().includes(search.toLowerCase()) ||
                          (emp.nationalId && emp.nationalId.includes(search));
@@ -684,46 +972,22 @@ export default function Employees() {
             </p>
           </div>
           <div className="flex gap-2">
-             <Button 
+            <Button 
               variant={showArchived ? "default" : "outline"}
               onClick={() => setShowArchived(!showArchived)}
               className="gap-2"
+              data-testid="btn-toggle-archive"
             >
               <Archive className="h-4 w-4" />
               {showArchived ? "عرض الموظفين الحاليين" : "عرض الأرشيف"}
             </Button>
-            {!showArchived && (
-              <>
-                <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-right">تأكيد الأرشفة</AlertDialogTitle>
-                      <AlertDialogDescription className="text-right">
-                        يرجى اختيار الحالة الجديدة للموظف {selectedEmployeeForArchive?.fullName} لنقله إلى الأرشيف:
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="py-4">
-                      <Select onValueChange={confirmArchive}>
-                        <SelectTrigger className="text-right">
-                          <SelectValue placeholder="اختر الحالة..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="نقل">نقل</SelectItem>
-                          <SelectItem value="استقالة">استقالة</SelectItem>
-                          <SelectItem value="إجازة بلا أجر">إجازة بلا أجر</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <AlertDialogFooter className="flex-row-reverse gap-2">
-                      <AlertDialogCancel onClick={() => { setArchiveConfirmOpen(false); setSelectedEmployeeForArchive(null); }}>إلغاء</AlertDialogCancel>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            )}
             <EmployeeFormDialog open={isAddOpen} onOpenChange={setIsAddOpen} employee={editingEmployee} />
             {!showArchived && (
-              <Button onClick={() => { setEditingEmployee(undefined); setIsAddOpen(true); }} className="gap-2 shadow-lg shadow-primary/20">
+              <Button
+                onClick={() => { setEditingEmployee(undefined); setIsAddOpen(true); }}
+                className="gap-2 shadow-lg shadow-primary/20"
+                data-testid="btn-add-employee"
+              >
                 <Plus className="h-4 w-4" />
                 إضافة موظف
               </Button>
@@ -739,13 +1003,14 @@ export default function Employees() {
               className="pr-9" 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              data-testid="input-search"
             />
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
             <div className="flex items-center gap-2">
               <Label className="whitespace-nowrap text-sm">عدد السجلات:</Label>
               <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
-                <SelectTrigger className="w-[80px]">
+                <SelectTrigger className="w-[80px]" data-testid="select-pageSize">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -808,7 +1073,7 @@ export default function Employees() {
                 </TableRow>
               ) : (
                 paginatedEmployees.map((emp) => (
-                  <TableRow key={emp.id} className="hover:bg-muted/50 transition-colors">
+                  <TableRow key={emp.id} className="hover:bg-muted/50 transition-colors" data-testid={`row-employee-${emp.id}`}>
                     <TableCell className="font-medium">{emp.fullName}</TableCell>
                     <TableCell>{emp.jobTitle}</TableCell>
                     <TableCell>{emp.category}</TableCell>
@@ -816,22 +1081,22 @@ export default function Employees() {
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         {(!showArchived || isAdmin) && (
-                          <Button variant="ghost" size="icon" onClick={() => { setEditingEmployee(emp); setIsAddOpen(true); }} title="تعديل">
+                          <Button variant="ghost" size="icon" onClick={() => { setEditingEmployee(emp); setIsAddOpen(true); }} title="تعديل" data-testid={`btn-edit-employee-${emp.id}`}>
                             <Pencil className="h-4 w-4 text-blue-600" />
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" onClick={() => generateWordDoc(emp)} title="تصدير Word">
+                        <Button variant="ghost" size="icon" onClick={() => generateWordDoc(emp)} title="تصدير Word" data-testid={`btn-word-${emp.id}`}>
                           <FileText className="h-4 w-4 text-orange-600" />
                         </Button>
                         {!showArchived && (
-                          <Button variant="ghost" size="icon" onClick={() => handleArchive(emp)} title="أرشفة" className="text-amber-600">
+                          <Button variant="ghost" size="icon" onClick={() => handleArchive(emp)} title="أرشفة" className="text-amber-600" data-testid={`btn-archive-${emp.id}`}>
                             <Archive className="h-4 w-4" />
                           </Button>
                         )}
                         {isAdmin && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" title="حذف">
+                              <Button variant="ghost" size="icon" title="حذف" data-testid={`btn-delete-${emp.id}`}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
@@ -867,6 +1132,7 @@ export default function Employees() {
               size="sm" 
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
+              data-testid="btn-prev-page"
             >
               السابق
             </Button>
@@ -878,6 +1144,7 @@ export default function Employees() {
                   size="sm"
                   className="w-8 h-8 p-0 shrink-0"
                   onClick={() => setCurrentPage(page)}
+                  data-testid={`btn-page-${page}`}
                 >
                   {page}
                 </Button>
@@ -888,6 +1155,7 @@ export default function Employees() {
               size="sm" 
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
+              data-testid="btn-next-page"
             >
               التالي
             </Button>

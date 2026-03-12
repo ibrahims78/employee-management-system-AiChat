@@ -28,6 +28,7 @@ export const employees = pgTable("employees", {
   gender: text("gender").notNull(), // ذكر - أنثى
   
   // Professional
+  certificate: text("certificate").notNull().default(""),
   certificateType: text("certificate_type").notNull(), // إعدادية – ثانوية – ثانوية صناعية – مهني – جامعة
   specialization: text("specialization").notNull(),
   jobTitle: text("job_title").notNull(),
@@ -87,6 +88,7 @@ export const insertEmployeeSchema = createInsertSchema(employees, {
   nationalId: z.string().min(1, "الرقم الوطني مطلوب").refine(val => val.length === 11 && /^[0-9]+$/.test(val), {
     message: "الرقم الوطني يجب أن يكون 11 خانة رقمية"
   }),
+  certificate: z.string().optional(),
   jobTitle: z.string().optional(),
   specialization: z.string().optional(),
   appointmentDecisionNumber: z.string().optional(),
