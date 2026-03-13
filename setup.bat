@@ -3,7 +3,7 @@ chcp 65001 >nul 2>&1
 setlocal EnableDelayedExpansion
 title Staff Health Analyzer - Secure Setup
 
-:: تفعيل دعم الألوان
+:: Enable color support in Windows console
 reg add HKCU\Console /v VirtualTerminalLevel /t REG_DWORD /d 1 /f >nul 2>&1
 
 set "INSTALL_DIR=C:\staff_health_2026"
@@ -22,7 +22,7 @@ if %errorLevel% NEQ 0 (
 echo [2/8] Checking Git...
 git --version >nul 2>&1
 if %errorLevel% NEQ 0 (
-    echo [INFO] Installing Git...
+    echo [INFO] Git not found. Installing Git...
     powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.44.0.windows.1/Git-2.44.0-64-bit.exe' -OutFile '%TEMP%\git_installer.exe'}"
     start /wait "" "%TEMP%\git_installer.exe" /VERYSILENT
 )
@@ -30,7 +30,7 @@ if %errorLevel% NEQ 0 (
 echo [3/8] Checking Docker...
 docker info >nul 2>&1
 if %errorLevel% NEQ 0 (
-    echo [ERROR] Docker is not running. Please start Docker Desktop.
+    echo [ERROR] Docker is not running. Please start Docker Desktop and try again.
     pause & exit
 )
 
@@ -46,7 +46,7 @@ if exist "%INSTALL_DIR%\.git" (
 ) else (
     git clone --depth 1 %REPO_URL% "%INSTALL_DIR%"
     if %errorLevel% NEQ 0 (
-        echo [ERROR] Failed to clone repository.
+        echo [ERROR] Failed to clone repository from GitHub.
         pause & exit
     )
     echo [OK] Repository cloned successfully.
@@ -62,12 +62,12 @@ cd /d "%INSTALL_DIR%"
 docker compose down >nul 2>&1
 docker compose up --build -d
 if %errorLevel% NEQ 0 (
-    echo [ERROR] Docker Build Failed.
+    echo [ERROR] Docker build failed. Check the output above for details.
     pause & exit
 )
-echo [OK] Containers started. Waiting for application to initialize...
+echo [OK] Containers started. Waiting 10 seconds for application to initialize...
 
-:: انتظار 10 ثوانٍ حتى يكتمل بدء التشغيل
+:: Wait 10 seconds for the application to fully start before checking logs
 timeout /t 10 /nobreak >nul
 
 echo [7/8] Verifying Application Status...
@@ -79,20 +79,20 @@ echo --- Application Logs (last 20 lines) ---
 docker logs staff-health-app --tail 20
 echo.
 
-:: التحقق من رسالة النجاح في اللوغ
+:: Check application startup success message in logs
 docker logs staff-health-app 2>&1 | findstr /C:"Starting application" >nul
 if %errorLevel% EQU 0 (
     echo [OK] Application is running successfully!
 ) else (
-    echo [WARN] Application may still be initializing. Check logs above for details.
+    echo [WARN] Application may still be initializing. Check the logs above for details.
 )
 
 echo [8/8] Finalizing...
 echo.
 echo ================================================
 echo   Setup Complete!
-echo   Open: http://localhost:%APP_PORT%
-echo   Login: admin / 123456
+echo   Open  : http://localhost:%APP_PORT%
+echo   Login : admin / 123456
 echo ================================================
 echo.
 start http://localhost:%APP_PORT%
