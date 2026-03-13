@@ -10,12 +10,9 @@ services:
       - DATABASE_URL=postgres://hruser:hrpassword@db:5432/hr_db
       - NODE_ENV=development
       - PORT=5001
-      - SESSION_SECRET=SH_Secure_2026_Admin_Auth_Key_Fixed
+      - SESSION_SECRET=SH_Secure_2026_Fixed_Key
     volumes:
       - ./storage:/app/storage
-    # هذا الأمر سيقوم بتصفير حالة المتصلين في قاعدة البيانات قبل بدء التطبيق
-    command: >
-      sh -c "node scripts/clear-sessions.js && npm start"
     depends_on:
       db:
         condition: service_healthy
