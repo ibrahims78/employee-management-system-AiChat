@@ -1,0 +1,91 @@
+================================================
+  Staff Health Analyzer - Setup Script
+================================================
+
+[1/8] Checking Administrator privileges...
+[OK] Running as Administrator.
+[2/8] Checking Git...
+[OK] Git is available.
+[3/8] Checking Docker...
+[OK] Docker is running.
+[4/8] Cloning or Updating Repository...
+     Pulling latest changes from GitHub...
+remote: Enumerating objects: 47, done.
+remote: Counting objects: 100% (47/47), done.
+remote: Compressing objects: 100% (5/5), done.
+remote: Total 34 (delta 29), reused 34 (delta 29), pack-reused 0 (from 0)
+Unpacking objects: 100% (34/34), 19.68 KiB | 34.00 KiB/s, done.
+From https://github.com/ibrahims78/Staff-Health-Analyzer
+ * branch            main       -> FETCH_HEAD
+   411fc68..f1b30e8  main       -> origin/main
+Updating 411fc68..f1b30e8
+Fast-forward
+ client/src/hooks/use-employees.tsx              |   10 +-
+ client/src/pages/Dashboard.tsx                  |    5 +-
+ client/src/pages/Employees.tsx                  |   64 +-
+ package.json                                    |    2 +-
+ server/routes.ts                                |    8 +-
+ server/storage.ts                               |   35 +-
+ storage/backups/backup_2026-03-13_20-19-14.json | 5088 +++++++++++++++++++++++
+ 7 files changed, 5181 insertions(+), 31 deletions(-)
+ create mode 100644 storage/backups/backup_2026-03-13_20-19-14.json
+[OK] Repository updated successfully.
+[5/8] Setting Up Storage Folders...
+[OK] Storage folders ready.
+[6/8] Building and Starting Containers...
+time="2026-03-13T23:26:52+03:00" level=warning msg="C:\\staff_health_2026\\docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[+] Building 223.5s (9/20)
+ => [internal] load local bake definitions                                                                         0.0s
+ => => reading from stdin 504B                                                                                     0.0s
+ => [internal] load build definition from Dockerfile                                                               0.0s
+ => => transferring dockerfile: 859B                                                                               0.0s
+ => [internal] load metadata for docker.io/library/node:20-slim                                                    3.3s
+ => [internal] load .dockerignore                                                                                  0.0s
+ => => transferring context: 193B                                                                                  0.0s
+ => [builder 1/6] FROM docker.io/library/node:20-slim@sha256:a82f40540f5959e0003fb7b3c0f80490def2927be8bdbee7e3e0  0.0s
+ => => resolve docker.io/library/node:20-slim@sha256:a82f40540f5959e0003fb7b3c0f80490def2927be8bdbee7e3e0ac65cce3  0.0s
+ => [internal] load build context                                                                                  0.1s
+ => => transferring context: 747.61kB                                                                              0.1s
+ => CACHED [builder 2/6] WORKDIR /app                                                                              0.0s
+ => [builder 3/6] COPY package*.json ./                                                                            0.1s
+ => ERROR [builder 4/6] RUN npm install                                                                          219.6s
+------
+ > [builder 4/6] RUN npm install:
+219.5 npm error code ECONNRESET
+219.5 npm error network aborted
+219.5 npm error network This is a problem related to network connectivity.
+219.5 npm error network In most cases you are behind a proxy or have bad network settings.
+219.5 npm error network
+219.5 npm error network If you are behind a proxy, please make sure that the
+219.5 npm error network 'proxy' config is set properly.  See: 'npm help config'
+219.5 npm notice
+219.5 npm notice New major version of npm available! 10.8.2 -> 11.11.1
+219.5 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.11.1
+219.5 npm notice To update run: npm install -g npm@11.11.1
+219.5 npm notice
+219.5 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-03-13T20_26_56_799Z-debug-0.log
+------
+Dockerfile:4
+
+--------------------
+
+   2 |     WORKDIR /app
+
+   3 |     COPY package*.json ./
+
+   4 | >>> RUN npm install
+
+   5 |     COPY . .
+
+   6 |     RUN npm run build
+
+--------------------
+
+failed to solve: process "/bin/sh -c npm install" did not complete successfully: exit code: 1
+
+
+
+View build details: docker-desktop://dashboard/build/default/default/m73jmlujbuhpc5bu42ugzh8hr
+
+[ERROR] Docker build failed. Check the output above for details.
+Press any key to continue . . .

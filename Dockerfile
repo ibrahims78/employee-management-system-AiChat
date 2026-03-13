@@ -1,7 +1,14 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+
+# Configure npm to handle network issues: more retries, longer timeouts
+RUN npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 15000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm config set fetch-timeout 300000 \
+ && npm install
+
 COPY . .
 RUN npm run build
 
