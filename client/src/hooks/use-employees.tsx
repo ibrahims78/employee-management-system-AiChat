@@ -20,10 +20,14 @@ export function useEmployees(includeArchived?: boolean) {
   const { toast } = useToast();
 
   const { data: employees = [], isLoading } = useQuery({
-    queryKey: ['/api/employees', { includeArchived }],
+    queryKey: ['/api/employees', { includeArchived, all: true }],
     queryFn: async () => {
-      const url = buildUrl('/api/employees', { includeArchived: includeArchived ? 'true' : undefined });
-      const res = await fetch(url);
+      // جلب جميع الموظفين بدون حد للصفحة (all=true) مع احترام فلتر الأرشفة
+      const url = buildUrl('/api/employees', {
+        includeArchived: includeArchived ? 'true' : undefined,
+        all: 'true',
+      });
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch employees");
       return await res.json() as Employee[];
     },

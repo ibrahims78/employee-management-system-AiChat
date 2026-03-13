@@ -30,9 +30,10 @@ const CHART_COLORS = ['#22c55e', '#f97316', '#0ea5e9', '#ef4444', '#8b5cf6', '#e
 
 export default function Dashboard() {
   const { data: allEmployees = [], isLoading: empLoading } = useQuery<Employee[]>({
-    queryKey: ['/api/employees', { all: true }],
+    queryKey: ['/api/employees', { allStatuses: true }],
     queryFn: async () => {
-      const res = await fetch('/api/employees?all=true', { credentials: 'include' });
+      // جلب جميع الموظفين بجميع الأوضاع (نشطين + مؤرشفين) للإحصائيات الصحيحة
+      const res = await fetch('/api/employees?allStatuses=true', { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to fetch employees");
       return res.json();
     },

@@ -14,7 +14,7 @@ export interface IStorage {
   resetAllOnlineStatus(): Promise<void>;
 
   // Employees
-  getEmployees(includeArchived?: boolean, page?: number, limit?: number, all?: boolean): Promise<Employee[]>;
+  getEmployees(includeArchived?: boolean, page?: number, limit?: number, all?: boolean, allStatuses?: boolean): Promise<Employee[]>;
   getEmployee(id: number): Promise<Employee | undefined>;
   createEmployee(employee: InsertEmployee): Promise<Employee>;
   updateEmployee(id: number, updates: Partial<InsertEmployee>): Promise<Employee>;
@@ -176,8 +176,16 @@ export class DatabaseStorage implements IStorage {
     await db.update(users).set({ isOnline: false, lastLogoutAt: new Date() });
   }
 
-  async getEmployees(includeArchived: boolean = false, page: number = 1, limit: number = 50, all: boolean = false): Promise<Employee[]> {
+  async getEmployees(includeArchived: boolean = false, page: number = 1, limit: number = 50, all: boolean = false, allStatuses: boolean = false): Promise<Employee[]> {
     const offset = (page - 1) * limit;
+
+    // جلب جميع الموظفين بجميع الأوضاع (للوحة التحكم والإحصائيات)
+    if (allStatuses) {
+      return await db.select().from(employees)
+        .where(eq(employees.isDeleted, false))
+        .orderBy(desc(employees.createdAt));
+    }
+
     if (all) {
       if (includeArchived) {
         // جلب جميع الموظفين المؤرشفين بدون حد
@@ -196,6 +204,7 @@ export class DatabaseStorage implements IStorage {
         )
       ).orderBy(desc(employees.createdAt));
     }
+
     if (includeArchived) {
       // جلب الموظفين المؤرشفين فقط مع التصفح
       return await db.select().from(employees).where(

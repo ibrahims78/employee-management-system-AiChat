@@ -156,7 +156,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Warn if employees have document paths pointing to missing files
   try {
-    const allEmployees = await storage.getEmployees(true, 1, 10000, true);
+    const allEmployees = await storage.getEmployees(false, 1, 10000, false, true);
     const employeesWithDocs = allEmployees.filter(e =>
       Array.isArray(e.documentPaths) && (e.documentPaths as string[]).length > 0
     );
@@ -358,10 +358,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get(api.employees.list.path, async (req, res) => {
     const includeArchived = req.query.includeArchived === 'true';
     const all = req.query.all === 'true';
+    const allStatuses = req.query.allStatuses === 'true';
     const page = parseInt(req.query.page as string) || 1;
-    // When all=true, no limit is applied (handled in storage layer)
-    const limit = all ? 10000 : Math.min(parseInt(req.query.limit as string) || 50, 100);
-    const employees = await storage.getEmployees(includeArchived, page, limit, all);
+    // When all=true or allStatuses=true, no limit is applied (handled in storage layer)
+    const limit = (all || allStatuses) ? 10000 : Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const employees = await storage.getEmployees(includeArchived, page, limit, all, allStatuses);
     res.json(employees);
   });
 
