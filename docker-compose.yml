@@ -10,6 +10,8 @@ services:
       - DATABASE_URL=postgres://hruser:hrpassword@db:5432/hr_db
       - NODE_ENV=production
       - PORT=5001
+      # تم إضافة كلمة سر قوية وثابتة للجلسات لمنع أخطاء 401
+      - SESSION_SECRET=SH_Secure_2026_Admin_Auth_Key_Fixed 
     volumes:
       - ./storage:/app/storage
     depends_on:
