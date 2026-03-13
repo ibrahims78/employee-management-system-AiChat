@@ -6,3 +6,9 @@ id = "LV_X7Cw6DLRqGoqH8zocr"
 uri = "file://دليل_النشر_المحلي_Docker.txt"
 type = "text"
 title = "دليل نشر التطبيق على Docker - ويندوز 10"
+
+[[outputs]]
+id = "FhQfbBwpqDeZIJxlmlBWi"
+uri = "file://test_employees_damascus_50.xlsx"
+type = "table"
+title = "بيانات اختبار - 50 موظف دمشق"
