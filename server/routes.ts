@@ -148,11 +148,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     console.error("Error clearing temporary upload files:", err);
   }
 
-  // Serve uploaded files statically
+  // Ensure all storage directories exist on startup
   const uploadsDir = path.join(process.cwd(), "storage", "uploads");
+  const backupsDir = path.join(process.cwd(), "storage", "backups");
+  await fs.mkdir(uploadsDir, { recursive: true });
+  await fs.mkdir(backupsDir, { recursive: true });
+
+  // Warn if employees have document paths pointing to missing files
   try {
-    await fs.mkdir(uploadsDir, { recursive: true });
-  } catch (err) {}
+    const allEmployees = await storage.getEmployees(true, 1, 10000, true);
+    const employeesWithDocs = allEmployees.filter(e =>
+      Array.isArray(e.documentPaths) && (e.documentPaths as string[]).length > 0
+    );
+    let missingCount = 0;
+    for (const emp of employeesWithDocs) {
+      for (const docPath of (emp.documentPaths as string[])) {
+        const relativePath = docPath.startsWith('/') ? docPath.substring(1) : docPath;
+        const storagePath = relativePath.startsWith('uploads')
+          ? path.join("storage", relativePath)
+          : relativePath;
+        const fullPath = path.resolve(process.cwd(), storagePath);
+        const exists = await fs.stat(fullPath).then(() => true).catch(() => false);
+        if (!exists) missingCount++;
+      }
+    }
+    if (missingCount > 0) {
+      console.warn(`[WARN] ${missingCount} employee document file(s) are missing from storage. The storage/uploads folder may have been deleted.`);
+    } else if (employeesWithDocs.length > 0) {
+      console.log(`[OK] All employee document files verified (${employeesWithDocs.length} employees with documents).`);
+    }
+  } catch (err) {
+    console.error("Error checking document files:", err);
+  }
 
   app.use("/uploads", (req, res, next) => {
     if (req.isAuthenticated()) {

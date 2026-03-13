@@ -12,8 +12,12 @@ client.connect().then(() => { client.end(); process.exit(0); }).catch(() => proc
 done
 
 echo "✅ Database is ready."
+
+echo "📁 Ensuring storage directories exist..."
+mkdir -p storage/uploads storage/temp_uploads storage/backups
+echo "✅ Storage directories ready."
+
 echo "🔄 Running database migrations..."
-# استخدام المسار المحلي للمكتبة لضمان التنفيذ الصحيح داخل الحاوية
 ./node_modules/.bin/drizzle-kit push --force
 
 echo "🚀 Starting application on port $PORT..."
