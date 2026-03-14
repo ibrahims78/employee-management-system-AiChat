@@ -12,6 +12,16 @@ import type { Employee } from "@shared/schema";
 
 const ALL_STATUSES = ['على رأس عمله', 'إجازة بلا أجر', 'نقل', 'استقالة'];
 
+// تطبيع نص الوضع الوظيفي لمعالجة الاختلافات الإملائية في قاعدة البيانات
+// (مثل: "إجازة بلا اجر" و "إجازة بلا أجر" تُعامَلان كوضع واحد)
+function normalizeStatus(status: string): string {
+  const s = status.trim();
+  if (s === 'إجازة بلا اجر' || s === 'اجازة بلا اجر' || s === 'اجازة بلا أجر') return 'إجازة بلا أجر';
+  if (s === 'على رأس عمله' || s === 'على راس عمله') return 'على رأس عمله';
+  if (s === 'استقاله') return 'استقالة';
+  return s;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   'على رأس عمله': '#22c55e',
   'إجازة بلا أجر': '#f97316',
@@ -119,7 +129,7 @@ export default function Dashboard() {
   const withFiles = allEmployees.filter(e => Array.isArray(e.documentPaths) && (e.documentPaths as string[]).length > 0).length;
 
   const statusCounts = allEmployees.reduce((acc, emp) => {
-    const status = emp.currentStatus || 'غير محدد';
+    const status = normalizeStatus(emp.currentStatus || 'غير محدد');
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -389,7 +399,8 @@ export default function Dashboard() {
                 <p className="text-center text-muted-foreground py-6">لا يوجد موظفون مسجلون بعد</p>
               ) : (
                 recentEmployees.map(emp => {
-                  const statusColor = STATUS_COLORS[emp.currentStatus] || '#8b5cf6';
+                  const empStatus = normalizeStatus(emp.currentStatus || '');
+                  const statusColor = STATUS_COLORS[empStatus] || '#8b5cf6';
                   return (
                     <div key={emp.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                       <div className="flex items-center gap-3">
@@ -406,7 +417,7 @@ export default function Dashboard() {
                         className="text-xs font-bold shrink-0"
                         style={{ borderColor: statusColor + '60', color: statusColor, backgroundColor: statusColor + '15' }}
                       >
-                        {emp.currentStatus || '—'}
+                        {empStatus || '—'}
                       </Badge>
                     </div>
                   );

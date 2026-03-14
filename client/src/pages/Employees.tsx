@@ -45,6 +45,14 @@ const STATUS_COLORS: Record<string, string> = {
   'استقالة': '#ef4444',
 };
 
+function normalizeStatus(status: string): string {
+  const s = status.trim();
+  if (s === 'إجازة بلا اجر' || s === 'اجازة بلا اجر' || s === 'اجازة بلا أجر') return 'إجازة بلا أجر';
+  if (s === 'على رأس عمله' || s === 'على راس عمله') return 'على رأس عمله';
+  if (s === 'استقاله') return 'استقالة';
+  return s;
+}
+
 function useDropdownOptions(key: string) {
   const { data, isLoading } = useQuery<string[] | null>({
     queryKey: ['/api/settings', key],
@@ -816,7 +824,8 @@ function EmployeeCard({ emp, index, isAdmin, showArchived, onEdit, onArchive, on
   onEdit: () => void; onArchive: () => void; onDelete: () => void;
   selected: boolean; onSelect: () => void;
 }) {
-  const statusColor = STATUS_COLORS[emp.currentStatus || ''] || '#8b5cf6';
+  const empStatus = normalizeStatus(emp.currentStatus || '');
+  const statusColor = STATUS_COLORS[empStatus] || '#8b5cf6';
   return (
     <Card className={`relative overflow-hidden border-border/60 hover:shadow-md transition-all duration-200 ${selected ? 'ring-2 ring-primary border-primary' : ''}`} data-testid={`card-employee-${emp.id}`}>
       <CardContent className="p-4">
@@ -832,7 +841,7 @@ function EmployeeCard({ emp, index, isAdmin, showArchived, onEdit, onArchive, on
             <p className="text-xs text-muted-foreground mt-0.5">{emp.jobTitle || emp.specialization || '—'}</p>
           </div>
           <Badge variant="outline" className="text-xs font-bold" style={{ borderColor: statusColor + '60', color: statusColor, backgroundColor: statusColor + '15' }}>
-            {emp.currentStatus || '—'}
+            {empStatus || '—'}
           </Badge>
         </div>
         <div className="mt-3 pt-3 border-t space-y-1.5 text-right">
