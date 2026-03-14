@@ -65,7 +65,7 @@ export default function Login() {
                     <FormControl>
                       <div className="relative group">
                         <User className="absolute right-3 top-3 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                        <Input className="pr-9 border-primary/20 focus:border-primary transition-all bg-background/50" placeholder="admin" {...field} />
+                        <Input className="pr-9 border-primary/20 focus:border-primary transition-all bg-background/50" placeholder="admin" autoComplete="username" {...field} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -81,7 +81,7 @@ export default function Login() {
                     <FormControl>
                       <div className="relative group">
                         <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                        <Input className="pr-9 border-primary/20 focus:border-primary transition-all bg-background/50" type="password" placeholder="••••••" {...field} />
+                        <Input className="pr-9 border-primary/20 focus:border-primary transition-all bg-background/50" type="password" placeholder="••••••" autoComplete="current-password" {...field} />
                       </div>
                     </FormControl>
                     <FormMessage />

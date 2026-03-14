@@ -218,7 +218,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       req.login(authenticatedUser, async (loginErr) => {
         if (loginErr) return next(loginErr);
         
-        await storage.updateUser(authenticatedUser.id, { 
+        const updatedUser = await storage.updateUser(authenticatedUser.id, { 
           isOnline: true, 
           lastLoginAt: new Date() 
         });
@@ -231,7 +231,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           newValues: { loginTime: new Date() }
         });
         
-        res.status(200).json({ user: authenticatedUser });
+        res.status(200).json({ user: updatedUser });
       });
     })(req, res, next);
   });
@@ -260,6 +260,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get(api.auth.me.path, (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     res.status(200).json(req.user);
+  });
+
+  // Heartbeat — keeps isOnline and lastLoginAt fresh while the user is active
+  app.post("/api/auth/heartbeat", async (req, res) => {
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const updatedUser = await storage.updateUser(req.user.id, {
+      isOnline: true,
+      lastLoginAt: new Date(),
+    });
+    res.status(200).json({ user: updatedUser });
   });
 
   // Protected middleware for all below
