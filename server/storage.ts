@@ -25,6 +25,7 @@ export interface IStorage {
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   bulkCreateAuditLogs(data: InsertAuditLog[]): Promise<void>;
   getAuditLogs(page?: number, limit?: number, action?: string, search?: string): Promise<{ logs: { log: AuditLog; user: User | null }[]; total: number }>;
+  getEmployeeHistory(employeeId: string): Promise<{ log: AuditLog; user: User | null }[]>;
   getAuditLogActionCounts(): Promise<Record<string, number>>;
   clearAuditLogs(): Promise<void>;
 
