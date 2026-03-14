@@ -118,7 +118,7 @@ export function useEmployees(includeArchived?: boolean) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/employees'] });
-      toast({ title: "تمت العملية بنجاح", description: "تم حذف الموظف (أرشفة)" });
+      toast({ title: "تمت العملية بنجاح", description: "تم حذف الموظف نهائياً" });
     },
     onError: (err: Error) => {
       toast({ title: "خطأ", description: err.message, variant: "destructive" });

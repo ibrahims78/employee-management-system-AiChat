@@ -641,6 +641,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.delete(api.employees.delete.path, async (req, res) => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ message: "Forbidden: Admin access required" });
+    }
     const id = Number(req.params.id);
     const employee = await storage.getEmployee(id);
     if (!employee) return res.status(404).json({ message: "Employee not found" });

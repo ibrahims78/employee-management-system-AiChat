@@ -175,7 +175,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEmployee(id: number): Promise<Employee | undefined> {
-    const [employee] = await db.select().from(employees).where(eq(employees.id, id));
+    const [employee] = await db.select().from(employees).where(and(eq(employees.id, id), eq(employees.isDeleted, false)));
     return employee;
   }
 
