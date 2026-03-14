@@ -1,117 +1,80 @@
 @echo off
-chcp 65001 > nul
 setlocal EnableDelayedExpansion
 
-title إعادة ضبط البرنامج - Reset System
+title System Reset Utility - Staff Health 2026
 
 echo.
-echo ╔══════════════════════════════════════════════════════════════╗
-echo ║          تحذير شديد - WARNING                               ║
-echo ║                                                              ║
-echo ║  هذا الأمر سيقوم بمسح جميع البيانات نهائياً:               ║
-echo ║    - جميع بيانات الموظفين                                   ║
-echo ║    - جميع حسابات المستخدمين                                ║
-echo ║    - جميع سجلات العمليات                                    ║
-echo ║    - جميع الجلسات النشطة                                    ║
-echo ║    - جميع الملفات المرفوعة                                  ║
-echo ║    - جميع النسخ الاحتياطية                                  ║
-echo ║                                                              ║
-echo ║  بعد المسح سيُنشأ مستخدم admin بكلمة مرور 123456           ║
-echo ║                                                              ║
-echo ║  لا يمكن التراجع عن هذه العملية!                           ║
-echo ╚══════════════════════════════════════════════════════════════╝
+echo ======================================================
+echo           CRITICAL WARNING - ACTION REQUIRED
+echo ======================================================
+echo   This command will PERMANENTLY delete:
+echo     - All Employee records and User accounts
+echo     - All Audit logs and Active sessions
+echo     - All Uploaded files and System backups
+echo.
+echo   An 'admin' user will be created (Pass: 123456)
+echo   THIS OPERATION CANNOT BE UNDONE!
+echo ======================================================
 echo.
 
-set /p CONFIRM1="هل أنت متأكد؟ اكتب نعم للمتابعة: "
-if /i not "%CONFIRM1%"=="نعم" (
-    echo تم إلغاء العملية.
-    pause
-    exit /b 0
-)
+set /p CONFIRM1="Are you sure? Type YES to continue: "
+if /i not "%CONFIRM1%"=="YES" goto :CANCEL
 
-set /p CONFIRM2="تأكيد أخير - اكتب كلمة RESET للمتابعة: "
-if not "%CONFIRM2%"=="RESET" (
-    echo تم إلغاء العملية.
-    pause
-    exit /b 0
-)
+set /p CONFIRM2="Final confirmation - Type RESET to proceed: "
+if not "%CONFIRM2%"=="RESET" goto :CANCEL
 
 echo.
-echo ══════════════════════════════════════════════════════════════
-echo  بدء عملية المسح...
-echo ══════════════════════════════════════════════════════════════
-echo.
+echo Starting Reset Process...
+echo ------------------------------------------------------
 
-REM ── تحميل المتغيرات من .env إن وجد ──────────────────────────────
+REM -- Database Credentials --
 set POSTGRES_USER=hruser
 set POSTGRES_DB=hr_db
-set POSTGRES_PASSWORD=hrpassword
 
-if exist ".env" (
-    for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
-        if "%%A"=="POSTGRES_USER"     set POSTGRES_USER=%%B
-        if "%%A"=="POSTGRES_DB"       set POSTGRES_DB=%%B
-        if "%%A"=="POSTGRES_PASSWORD" set POSTGRES_PASSWORD=%%B
-    )
-)
+REM -- 1. Stop App --
+echo [1/5] Stopping application container...
+docker stop staff-health-app >nul 2>&1
+echo       Done.
 
-REM ── 1. إيقاف حاوية التطبيق فقط ───────────────────────────────────
-echo [1/5] إيقاف حاوية التطبيق...
-docker stop staff-health-app > nul 2>&1
-echo       تم.
-
-REM ── 2. مسح جداول قاعدة البيانات ──────────────────────────────────
-echo [2/5] مسح قاعدة البيانات...
-docker exec staff-health-db psql -U %POSTGRES_USER% -d %POSTGRES_DB% -c ^
-"DELETE FROM audit_logs; DELETE FROM session; DELETE FROM employees; DELETE FROM users;" > nul 2>&1
+REM -- 2. Wipe DB --
+echo [2/5] Wiping database tables...
+docker exec staff-health-db psql -U %POSTGRES_USER% -d %POSTGRES_DB% -c "DELETE FROM audit_logs; DELETE FROM session; DELETE FROM employees; DELETE FROM users;"
 
 if %errorlevel% neq 0 (
-    echo.
-    echo [خطأ] فشل الاتصال بقاعدة البيانات.
-    echo       تأكد أن حاوية staff-health-db تعمل وأعد المحاولة.
+    echo [ERROR] Database connection failed.
     pause
     exit /b 1
 )
-echo       تم مسح جميع البيانات.
+echo       Data cleared.
 
-REM ── 3. مسح الملفات المرفوعة ───────────────────────────────────────
-echo [3/5] مسح ملفات الموظفين المرفوعة...
+REM -- 3. Clear Uploads --
+echo [3/5] Deleting uploaded files...
 if exist "storage\uploads" (
-    for /f "delims=" %%F in ('dir /b /a-d "storage\uploads\" 2^>nul') do (
-        del /f /q "storage\uploads\%%F" > nul 2>&1
-    )
-    for /d %%D in ("storage\uploads\*") do (
-        rd /s /q "%%D" > nul 2>&1
-    )
+    del /s /q "storage\uploads\*.*" >nul 2>&1
+    for /d %%p in ("storage\uploads\*") do rd /s /q "%%p" >nul 2>&1
 )
-echo       تم.
+echo       Done.
 
-REM ── 4. مسح النسخ الاحتياطية ──────────────────────────────────────
-echo [4/5] مسح النسخ الاحتياطية...
-if exist "storage\backups" (
-    for /f "delims=" %%F in ('dir /b /a-d "storage\backups\" 2^>nul') do (
-        del /f /q "storage\backups\%%F" > nul 2>&1
-    )
-)
-if exist "storage\temp_uploads" (
-    for /f "delims=" %%F in ('dir /b /a-d "storage\temp_uploads\" 2^>nul') do (
-        del /f /q "storage\temp_uploads\%%F" > nul 2>&1
-    )
-)
-echo       تم.
+REM -- 4. Clear Backups --
+echo [4/5] Deleting backups...
+if exist "storage\backups" del /q "storage\backups\*.*" >nul 2>&1
+if exist "storage\temp_uploads" del /q "storage\temp_uploads\*.*" >nul 2>&1
+echo       Done.
 
-REM ── 5. إعادة تشغيل التطبيق ───────────────────────────────────────
-echo [5/5] إعادة تشغيل التطبيق (سيُنشأ مستخدم admin تلقائياً)...
-docker start staff-health-app > nul 2>&1
-echo       تم.
+REM -- 5. Restart --
+echo [5/5] Restarting application...
+docker start staff-health-app >nul 2>&1
+echo       Done.
 
 echo.
-echo ══════════════════════════════════════════════════════════════
-echo  اكتملت عملية إعادة الضبط بنجاح!
-echo.
-echo  يمكنك الدخول الآن بـ:
-echo    المستخدم : admin
-echo    كلمة المرور: 123456
-echo ══════════════════════════════════════════════════════════════
-echo.
+echo ======================================================
+echo  System Reset Completed!
+echo  Login: admin / Pass: 123456
+echo ======================================================
 pause
+exit /b 0
+
+:CANCEL
+echo Operation cancelled.
+pause
+exit /b 0
