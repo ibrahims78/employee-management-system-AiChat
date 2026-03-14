@@ -1,6 +1,89 @@
-node_modules
-dist
+# ============================
+# التبعيات / Dependencies
+# ============================
+node_modules/
+dist/
+
+# ============================
+# ملفات البيئة / Environment
+# ============================
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ============================
+# بيانات المستخدمين والملفات / User Data & Uploads
+# ============================
+storage/uploads/
+storage/backups/
+storage/temp_uploads/
+
+# ============================
+# بيانات الاختبار / Test Data
+# ============================
+*.xlsx
+*.csv
+test_employees*.xlsx
+
+# ============================
+# ملفات النظام / OS Files
+# ============================
 .DS_Store
-server/public
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# ============================
+# ملفات Replit
+# ============================
+.replit
+replit.md
+.upm/
+.cache/
+.local/
+.agents/
+attached_assets/
+
+# ============================
+# ملفات البناء / Build
+# ============================
 vite.config.ts.*
 *.tar.gz
+*.zip
+
+# ============================
+# ملفات Cloudflare (استخدمها محلياً ولا ترفعها)
+# ============================
+cloudflared-config.yml
+*.json.credentials
+
+# ============================
+# Bun (نستخدم npm)
+# ============================
+bun.lock
+
+# ============================
+# ملفات التوثيق القديمة (استُبدلت بمجلد docs/)
+# ============================
+deployment_guide.txt
+دليل_النشر_المحلي_Docker.txt
+
+# ============================
+# ملفات مهجورة / Deprecated
+# ============================
+script/sync_master.ts
+script/generate-test-employees.mjs
+
+# ============================
+# السجلات / Logs
+# ============================
+*.log
+npm-debug.log*
+logs/
+
+# ============================
+# TypeScript
+# ============================
+*.tsbuildinfo
