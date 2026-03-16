@@ -1249,39 +1249,111 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ─── Bot API Endpoints (machine API key required) ─────────────────────────
 
-  // POST /api/v1/bot/check-auth
+  // POST /api/v1/bot/check-auth  (Hybrid LID Mapping & Fixed-Code Sessions)
   app.post("/api/v1/bot/check-auth", authenticateMachineAPI, async (req, res) => {
     try {
-      const { phoneNumber } = req.body;
+      const { phoneNumber, activationCode } = req.body;
+
+      // phoneNumber هنا هو الـ LID القادم من n8n
       if (!phoneNumber) {
-        return res.status(400).json({ authorized: false, message: "رقم الهاتف مطلوب" });
-      }
-      const normalized = normalizePhone(String(phoneNumber));
-      const botUser = await storage.getBotUserByPhone(normalized);
-
-      if (!botUser) {
-        return res.json({ authorized: false, message: "الرقم غير مسجل في النظام" });
+        return res.status(400).json({ authorized: false, message: "phoneNumber مطلوب" });
       }
 
-      // Check if employee has documents
-      const allEmployees = await storage.getEmployees(false, 1, 10000, false, true);
-      const matchedEmployee = allEmployees.find(
-        (e) => e.mobile && normalizePhone(e.mobile) === normalized
-      );
-      const hasDocs = matchedEmployee
-        ? Array.isArray(matchedEmployee.documentPaths) && (matchedEmployee.documentPaths as string[]).length > 0
-        : false;
+      const incomingLid = String(phoneNumber).trim();
+      const incomingCode = activationCode ? String(activationCode).trim() : null;
 
-      res.json({
-        authorized: true,
-        full_name: botUser.fullName,
-        phone_number: botUser.phoneNumber,
-        is_bot_active: botUser.isBotActive,
-        activation_code: botUser.activationCode,
-        deactivation_code: botUser.deactivationCode,
-        has_documents: hasDocs,
-        last_interaction: botUser.lastInteraction,
-      });
+      // ── 1. التعرف التلقائي عبر LID ──────────────────────────────────────────
+      // ابحث أولاً إذا كان هذا الـ LID مرتبط بحساب موظف
+      let botUser = await storage.getBotUserByLid(incomingLid);
+
+      if (botUser) {
+        // ── الأولوية الأعلى: كود الإيقاف يُنهي الجلسة فوراً بغض النظر عن حالتها
+        if (incomingCode && incomingCode === botUser.deactivationCode) {
+          await storage.updateBotUser(botUser.id, {
+            isBotActive: false,
+            lastInteraction: new Date(),
+          });
+          return res.json({
+            authorized: true,
+            is_bot_active: false,
+            full_name: botUser.fullName,
+            deactivation_code: botUser.deactivationCode,
+          });
+        }
+
+        if (botUser.isBotActive) {
+          // الجلسة نشطة + LID معروف → تعرّف تلقائي، جدّد last_interaction
+          await storage.updateBotUser(botUser.id, { lastInteraction: new Date() });
+          return res.json({
+            authorized: true,
+            is_bot_active: true,
+            full_name: botUser.fullName,
+            deactivation_code: botUser.deactivationCode,
+          });
+        }
+
+        // LID معروف + جلسة منتهية → نفحص كود التفعيل
+        if (incomingCode && incomingCode === botUser.activationCode) {
+          await storage.updateBotUser(botUser.id, {
+            isBotActive: true,
+            lastInteraction: new Date(),
+          });
+          return res.json({
+            authorized: true,
+            is_bot_active: true,
+            full_name: botUser.fullName,
+            deactivation_code: botUser.deactivationCode,
+          });
+        }
+
+        // LID معروف + جلسة منتهية + لا كود صالح → مرفوض
+        return res.json({ authorized: false });
+      }
+
+      // ── 2. LID غير معروف → البحث عبر الكود ─────────────────────────────────
+      if (!incomingCode) {
+        // لا يوجد LID مسجل ولا كود → مرفوض
+        return res.json({ authorized: false });
+      }
+
+      // جلب جميع المستخدمين للمطابقة بالكود
+      const allBotUsers = await storage.getBotUsers();
+
+      // بحث بكود التفعيل
+      const activationMatch = allBotUsers.find(u => u.activationCode === incomingCode);
+      if (activationMatch) {
+        // ربط الـ LID الجديد بالحساب وتفعيل الجلسة
+        await storage.updateBotUser(activationMatch.id, {
+          whatsappLid: incomingLid,
+          isBotActive: true,
+          lastInteraction: new Date(),
+        });
+        return res.json({
+          authorized: true,
+          is_bot_active: true,
+          full_name: activationMatch.fullName,
+          deactivation_code: activationMatch.deactivationCode,
+        });
+      }
+
+      // بحث بكود الإيقاف (حتى لو اللـ LID جديد، يُكرَّم كود الإيقاف)
+      const deactivationMatch = allBotUsers.find(u => u.deactivationCode === incomingCode);
+      if (deactivationMatch) {
+        await storage.updateBotUser(deactivationMatch.id, {
+          isBotActive: false,
+          lastInteraction: new Date(),
+        });
+        return res.json({
+          authorized: true,
+          is_bot_active: false,
+          full_name: deactivationMatch.fullName,
+          deactivation_code: deactivationMatch.deactivationCode,
+        });
+      }
+
+      // لم يُطابَق شيء → مرفوض
+      return res.json({ authorized: false });
+
     } catch (err) {
       res.status(500).json({ authorized: false, message: "خطأ في التحقق من الصلاحية" });
     }
