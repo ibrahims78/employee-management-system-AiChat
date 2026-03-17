@@ -48,3 +48,9 @@ id = "Qsmaq1zGPhmrxkIZPqaqH"
 uri = "file://storage/backups/Sidawi_AI_Health_V15_Updated.json"
 type = "unspecified"
 title = "Sidawi_AI_Health_V15_Updated.json"
+
+[[outputs]]
+id = "tnJpr9hWbLSm9-jc_FJeJ"
+uri = "file://storage/backups/Sidawi_AI_Health_V15_Fixed.json"
+type = "unspecified"
+title = "Sidawi_AI_Health_V15_Fixed.json"
