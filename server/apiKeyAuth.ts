@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 
 async function validateApiKey(req: Request, res: Response, machineOnly = false): Promise<boolean> {
-  const apiKey = req.headers["x-api-key"];
+  // Accept key from header OR from URL query param ?_t= (for n8n tool calls where headers are LLM-controlled)
+  const apiKey = req.headers["x-api-key"] ?? req.query._t;
 
   if (!apiKey || typeof apiKey !== "string") {
     res.status(401).json({
