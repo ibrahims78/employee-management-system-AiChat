@@ -30,3 +30,9 @@ id = "MLvU8gxpn4s04CXpv-CoQ"
 uri = "file://attached_assets/Sidawi_AI_Health_V11_Fixed.json"
 type = "unspecified"
 title = "Sidawi_AI_Health_V11_Fixed.json — الورك فلو المُصحح"
+
+[[outputs]]
+id = "dKQiXoDgSvghTIQf92iKb"
+uri = "file://attached_assets/Sidawi_AI_Health_V12_Ready.json"
+type = "unspecified"
+title = "Sidawi_AI_Health_V12_Ready.json — جاهز للاستيراد"
