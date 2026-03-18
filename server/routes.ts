@@ -194,10 +194,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Allows WhatsApp users to open document links without a browser session.
   app.get("/api/v1/files/*filePath", authenticateAPI, async (req, res) => {
     try {
-      const filePath = (req.params as any).filePath as string;
+      const rawParam = (req.params as any).filePath;
+      const filePath = Array.isArray(rawParam) ? rawParam.join("/") : String(rawParam || "");
       if (!filePath) return res.status(400).send("مسار الملف مطلوب");
 
-      // Normalize: remove leading slash, ensure it starts with "uploads/"
+      // Normalize path and ensure it's under uploads/
       const normalized = filePath.replace(/^\/+/, "");
       if (!normalized.startsWith("uploads/")) {
         return res.status(400).send("مسار غير صالح");
@@ -206,18 +207,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const fullPath = path.resolve(process.cwd(), "storage", normalized);
       const absoluteUploadsDir = path.resolve(process.cwd(), "storage", "uploads");
 
-      // Security: prevent path traversal
+      // Security: block path traversal
       if (!fullPath.startsWith(absoluteUploadsDir)) {
         return res.status(403).send("مسار غير مسموح به");
       }
 
-      const exists = await fs.stat(fullPath).then(() => true).catch(() => false);
-      if (!exists) return res.status(404).send("الملف غير موجود");
+      const stat = await fs.stat(fullPath).catch(() => null);
+      if (!stat) return res.status(404).send("الملف غير موجود");
 
-      res.sendFile(fullPath);
+      // Determine content type from extension
+      const ext = path.extname(fullPath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".doc": "application/msword",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".xls": "application/vnd.ms-excel",
+      };
+
+      const contentType = mimeTypes[ext] || "application/octet-stream";
+      const fileName = path.basename(fullPath);
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Length", stat.size);
+      res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+
+      // Stream file directly — avoids Express sendFile issues with non-ASCII paths
+      const stream = fsSync.createReadStream(fullPath);
+      stream.on("error", (err) => {
+        console.error("[Bot file-serve] Stream error:", err);
+        if (!res.headersSent) res.status(500).send("خطأ في جلب الملف");
+      });
+      stream.pipe(res);
     } catch (err) {
       console.error("[Bot file-serve] Error:", err);
-      res.status(500).send("خطأ في جلب الملف");
+      if (!res.headersSent) res.status(500).send("خطأ في جلب الملف");
     }
   });
 
@@ -1445,8 +1473,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const documents = docPaths.map((docPath) => {
         const fileName = path.basename(docPath);
         const cleanPath = docPath.startsWith("/") ? docPath.substring(1) : docPath;
+        const encodedPath = cleanPath.split("/").map((s) => encodeURIComponent(s)).join("/");
         const downloadUrl = apiToken
-          ? `${baseUrl}/api/v1/files/${cleanPath}?_t=${apiToken}`
+          ? `${baseUrl}/api/v1/files/${encodedPath}?_t=${apiToken}`
           : `${baseUrl}${docPath}`;
         return { name: fileName, url: downloadUrl, path: docPath };
       });
@@ -1545,8 +1574,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           xls: "Excel",
         };
         const cleanPath = docPath.startsWith("/") ? docPath.substring(1) : docPath;
+        const encodedCleanPath = cleanPath.split("/").map((s: string) => encodeURIComponent(s)).join("/");
         const fileUrl = botApiToken
-          ? `${baseUrl}/api/v1/files/${cleanPath}?_t=${botApiToken}`
+          ? `${baseUrl}/api/v1/files/${encodedCleanPath}?_t=${botApiToken}`
           : `${baseUrl}${docPath}`;
         return {
           name: fileName,
@@ -1651,8 +1681,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const ext = path.extname(fileName).toLowerCase().replace(".", "");
           // Build a bot-accessible URL via /api/v1/files/ with API key embedded
           const cleanPath = docPath.startsWith("/") ? docPath.substring(1) : docPath;
+          // URL-encode each path segment to handle Arabic characters and spaces
+          const encodedPath = cleanPath.split("/").map((s) => encodeURIComponent(s)).join("/");
           const directUrl = apiKeyToken
-            ? `${baseUrl}/api/v1/files/${cleanPath}?_t=${apiKeyToken}`
+            ? `${baseUrl}/api/v1/files/${encodedPath}?_t=${apiKeyToken}`
             : `${baseUrl}${docPath}`;
           return {
             file_name: fileName,
