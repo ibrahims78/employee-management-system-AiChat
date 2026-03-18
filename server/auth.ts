@@ -9,6 +9,10 @@ import { User as SelectUser } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
 
+// Fixed machine API key for n8n bot integration
+// This key is embedded in the n8n workflow and must match the DB
+const N8N_MACHINE_KEY = "3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4";
+
 declare global {
   namespace Express {
     interface User extends SelectUser {}
@@ -86,6 +90,22 @@ export function setupAuth(app: Express) {
       }
     } catch (err) {
       console.error("Error creating default admin:", err);
+    }
+  })();
+
+  // Ensure n8n machine API key exists on startup (same key embedded in workflow)
+  (async () => {
+    try {
+      const existing = await storage.getApiKeyByValue(N8N_MACHINE_KEY);
+      if (!existing) {
+        await storage.createApiKey(
+          { description: "n8n", keyType: "machine", isActive: true },
+          N8N_MACHINE_KEY
+        );
+        console.log("n8n machine API key seeded successfully.");
+      }
+    } catch (err) {
+      console.error("Error seeding n8n API key:", err);
     }
   })();
 
