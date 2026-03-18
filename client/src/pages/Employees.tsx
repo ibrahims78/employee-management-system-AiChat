@@ -510,7 +510,7 @@ function EmployeeFormDialog({ open, onOpenChange, employee }: { open: boolean; o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>{employee ? "تعديل بيانات موظف" : "إضافة موظف جديد"}</DialogTitle>
         </DialogHeader>
@@ -603,7 +603,7 @@ function ExcelExportDialog({ showArchived, filteredEmployees }: { showArchived: 
           تصدير إكسل
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>تصدير بيانات {showArchived ? "الموظفين المؤرشفين" : "الموظفين"} إلى Excel</DialogTitle>
         </DialogHeader>

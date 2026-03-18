@@ -358,7 +358,7 @@ export default function AuditLogs() {
                               <Eye className="h-4 w-4 text-primary" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="w-[95vw] max-w-2xl rounded-xl">
+                          <DialogContent className="max-w-2xl">
                             <DialogHeader>
                               <DialogTitle className="flex items-center gap-3 text-xl font-bold">
                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${meta.color}`}>
