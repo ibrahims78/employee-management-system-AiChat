@@ -90,3 +90,9 @@ id = "EWFtn2ilRfL4Fs1EzsXrK"
 uri = "file://attached_assets/Sidawi_AI_Health_V21_Updated.json"
 type = "unspecified"
 title = "Sidawi AI Health V21 - مع أداة Excel الجديدة"
+
+[[outputs]]
+id = "EeRgOHcOPjriDQd-gccWr"
+uri = "file://attached_assets/Sidawi_AI_Health_V22_strict.json"
+type = "unspecified"
+title = "Sidawi AI Health V22 - سيستم برومبت صارم"
