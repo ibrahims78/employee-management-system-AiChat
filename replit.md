@@ -2,147 +2,134 @@
 
 ## Overview
 
-This is a full-stack Employee HR Management System designed for a Health Engineering Office (القسم الهندسي الصحي). It manages employee records including personal information, professional details, employment history, and document uploads. The application is built with an Arabic RTL interface and features a dashboard, employee CRUD operations, user management with role-based access, audit logging, and data export capabilities (Excel/Word).
+Full-stack Employee HR Management System designed for a Health Engineering Office (القسم الهندسي الصحي). Manages employee records including personal info, professional details, employment history, document uploads, and includes a WhatsApp AI bot integration via n8n. The application has a complete Arabic RTL interface.
 
 The app runs on port 5000. Default admin credentials: `admin` / `123456`.
 
-**Note:** The `1Staff Health Engineering Office/` and `unzipped_app/` directories are duplicate copies of the main project and should be ignored. The active codebase lives at the repository root.
-
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+Preferred communication style: Simple, everyday language (Arabic).
 
 ## System Architecture
 
 ### Overall Structure
-The project follows a monorepo pattern with three main directories:
-- **`client/`** — React frontend (SPA)
-- **`server/`** — Express.js backend API
-- **`shared/`** — Shared types, schemas, and route definitions used by both client and server
+Monorepo pattern with three main directories:
+- **`client/`** — React 18 frontend (SPA)
+- **`server/`** — Express.js v5 backend API
+- **`shared/`** — Shared types, schemas, and route definitions
 
 ### Frontend (`client/src/`)
-- **Framework:** React with TypeScript, built with Vite
-- **Routing:** Wouter (lightweight client-side router)
-- **State/Data Fetching:** TanStack React Query for server state management
-- **UI Components:** shadcn/ui (New York style) built on Radix UI primitives
-- **Styling:** Tailwind CSS with CSS variables for theming, supports dark mode via `next-themes`
-- **Forms:** React Hook Form with Zod validation via `@hookform/resolvers`
+- **Framework:** React 18 with TypeScript, built with Vite
+- **Routing:** Wouter
+- **State/Data Fetching:** TanStack React Query v5
+- **UI Components:** shadcn/ui (New York style) on Radix UI primitives
+- **Styling:** Tailwind CSS with CSS variables, dark mode via `next-themes`
+- **Forms:** React Hook Form + Zod via `@hookform/resolvers`
 - **Charts:** Recharts for dashboard visualizations
-- **Exports:** `xlsx` for Excel export, `docx` + `file-saver` for Word document generation
-- **Language/Direction:** Arabic (RTL), using Tajawal font
-- **Path aliases:** `@/` maps to `client/src/`, `@shared/` maps to `shared/`
+- **Exports:** `xlsx` (Excel), `docx` + `file-saver` (Word)
+- **Language/Direction:** Arabic (RTL), Tajawal font
+- **Path aliases:** `@/` → `client/src/`, `@shared/` → `shared/`
 
 ### Backend (`server/`)
-- **Framework:** Express.js with TypeScript, run via `tsx`
-- **Authentication:** Custom session-based auth using Passport.js with local strategy. Passwords hashed with scrypt. Sessions stored in PostgreSQL via `connect-pg-simple`.
-- **Authorization:** Role-based (`admin` / `employee`). Admin-only routes for user management and audit logs.
-- **File Uploads:** Multer with disk storage in `storage/` directory. Allowed types: PDF, JPEG, PNG, DOCX, XLSX. Max 10MB per file.
-- **Rate Limiting:** `express-rate-limit` on login endpoint (5 attempts per 15 minutes)
-- **API Pattern:** REST API under `/api/` prefix. Route definitions shared between client and server via `shared/routes.ts`.
-- **Build:** esbuild bundles server to `dist/index.cjs` for production; Vite builds client to `dist/public/`
+- **Framework:** Express.js v5 with TypeScript, run via `tsx`
+- **Authentication:** Passport.js local strategy, passwords hashed with scrypt, sessions in PostgreSQL via `connect-pg-simple`
+- **Authorization:** Role-based (`admin` / `employee`). Admin-only routes for user management, audit logs
+- **File Uploads:** Multer, disk storage in `storage/uploads/`. Allowed: PDF, JPEG, PNG, DOCX, XLSX. Max 10MB
+- **Rate Limiting:** `express-rate-limit` on login (5 attempts / 15 min)
+- **API Pattern:** REST under `/api/` prefix. Bot API under `/api/v1/bot/` (machine API key required)
+- **Build:** esbuild → `dist/index.cjs` (server), Vite → `dist/public/` (client)
 
 ### Database
-- **Database:** PostgreSQL (required, via `DATABASE_URL` environment variable)
-- **ORM:** Drizzle ORM with `drizzle-zod` for schema-to-validation integration
-- **Schema location:** `shared/schema.ts`
-- **Migrations:** Drizzle Kit with `drizzle-kit push` command (no migration files approach)
-- **Tables:**
-  - `users` — System users with UUID primary keys, username/password, role, online status tracking
-  - `employees` — Employee records with personal info (name, DOB, national ID, gender), professional info (certificates, job title, category, employment status, appointment details, work assignments), contact info, document paths (JSONB), and soft-delete support
-  - `auditLogs` — Tracks all system operations (CREATE, UPDATE, DELETE, LOGIN, LOGOUT) with user reference and cascade delete
+- **PostgreSQL** via `DATABASE_URL` environment variable
+- **ORM:** Drizzle ORM with `drizzle-zod`
+- **Schema:** `shared/schema.ts`
+- **Migrations:** `drizzle-kit push` (no migration files approach)
 
-### Key Design Decisions
-1. **Shared schema between client and server** — The `shared/` directory contains both the Drizzle schema and Zod validation schemas derived from it, ensuring type safety across the full stack.
-2. **Soft deletes for employees** — Employees are never hard-deleted; `isDeleted` flag and `deletedAt` timestamp are used instead.
-3. **Cascade delete on audit logs** — When a user is deleted, their audit log entries are handled via cascade to prevent orphaned records.
-4. **Session-based auth over JWT** — Sessions stored in PostgreSQL for persistence across server restarts.
-5. **File storage on disk** — Uploaded documents stored in `storage/` directory on the filesystem, paths stored as JSONB in the database.
+### Tables
+- `users` — System users (UUID PKs), username/password, role, online status
+- `employees` — Employee records with all fields, `documentPaths` (JSONB), soft-delete (`isDeleted`)
+- `auditLogs` — All system operations, cascade delete on user delete
+- `settings` — Key-value system settings
+- `api_keys` — API keys (human/machine types), with expiry and active flag
+- `bot_users` — WhatsApp bot users, activation/deactivation codes, `whatsappLid`, `isBotActive`, `lastInteraction`
+- `sessions` — Express sessions stored by `connect-pg-simple`
 
-### Environment Variables
+## API Key System
+
+### Two types:
+- **`human`** — Browser login allowed + API header access
+- **`machine`** — API header only, blocked from browser login (403). Used by n8n bot.
+
+### Bootstrap mode:
+When `api_keys` table is empty, login allowed without key. `GET /api/auth/setup-status` returns `{ apiKeyRequired: boolean }`.
+
+### Security:
+- Full key shown once at creation, masked in all list views
+- Keys stored as plain hex in `key_value` (64 chars via `crypto.randomBytes(32)`)
+
+## WhatsApp Bot System
+
+### Flow:
+1. n8n webhook receives WhatsApp message
+2. Calls `POST /api/v1/bot/check-auth` with `phoneNumber` (LID or phone) and `activationCode` (message content)
+3. Returns `action`: `activated` | `deactivated` | `auto_deactivated` | `message` | `unauthorized`
+4. n8n routes to appropriate handler (welcome message, goodbye, timeout, or AI agent)
+
+### Session management:
+- Sessions identified by WhatsApp LID (stored in `whatsappLid` field)
+- Auto-deactivate after 10 min inactivity (`AUTO_TIMEOUT_MS = 10 * 60 * 1000`)
+- Background cron job every 60s deactivates timed-out sessions
+
+### Session Hijacking Protection (added March 2026):
+- If a `@lid` format request tries to activate using an employee's code BUT that employee already has a different LID registered → **rejected with `unauthorized`**
+- Prevents one person from stealing another's active bot session
+- Admin can reset LID via `PATCH /api/bot-users/:id` with `{ resetLid: true }`
+
+### Bot API endpoints (all require `x-api-key` machine key):
+- `POST /api/v1/bot/check-auth` — Auth + session management
+- `POST /api/v1/bot/get-all-data` — Full employee data by phone
+- `GET /api/v1/bot/master-query` — Full DB snapshot for AI (employees + docs)
+- `GET /api/v1/bot/generate-word-link` — Generate Word card + download URL
+- `GET /api/v1/bot/generate-excel-link` — Export all employees Excel + download URL
+- `GET /api/v1/files/:path` — Serve employee files protected by API key
+
+## n8n Workflow
+
+### File: `docs/workflows/Sidawi_AI_Health_V22.json`
+
+### AI Agent strict rules (system prompt):
+1. MUST call `fetch_employee_database` before ANY response
+2. If employee not found: respond ONLY with: "لا يوجد موظف بهذا الاسم أو الرقم في قاعدة بيانات المديرية."
+3. Documents only from `direct_url` field — never fabricate links
+4. Word file: get `nationalId` from DB tool first, then call `generate_word_link`
+5. Out of scope: "أنا متخصص في بيانات موظفي المديرية فقط."
+
+### n8n Workflow URLs (production):
+- Update `docs/workflows/Sidawi_AI_Health_V22.json` domain after each deployment
+- Current machine API key: stored in `api_keys` table, `key_type = 'machine'`, description `n8n`
+
+### User isolation:
+- Each user gets independent conversation memory via `sessionKey = phone`
+- n8n executes each webhook as a completely independent execution
+- Backend is async — handles concurrent users with no interference
+
+## Environment Variables
 - `DATABASE_URL` — PostgreSQL connection string (required)
-- `SESSION_SECRET` — Secret for session encryption (recommended, auto-generated if missing)
-- `NODE_ENV` — Set to `production` for production builds
+- `SESSION_SECRET` — Session encryption secret (auto-generated if missing)
+- `NODE_ENV` — `development` or `production`
+- `PORT` — Server port (default: 5000, set by .replit)
+- `COOKIE_SECURE` — `true` in production, `false` locally
 
-### Scripts
-- `npm run dev` — Start development server with hot reload
-- `npm run build` — Build for production (client + server)
+## Scripts
+- `npm run dev` — Development server (tsx + Vite HMR)
+- `npm run build` — Production build (esbuild + Vite)
 - `npm start` — Run production build
-- `npm run db:push` — Push schema changes to database
-- `npm run check` — TypeScript type checking
+- `npm run db:push` — Push schema to database
+- `npm run check` — TypeScript type check
 
-## External Dependencies
-
-### Database
-- **PostgreSQL** — Primary data store. Connected via `pg` Pool using `DATABASE_URL`. Sessions also stored in PostgreSQL via `connect-pg-simple`.
-
-### Key NPM Packages
-- **drizzle-orm / drizzle-kit** — ORM and migration tooling for PostgreSQL
-- **express / express-session** — HTTP server and session management
-- **passport / passport-local** — Authentication framework
-- **multer** — Multipart file upload handling
-- **express-rate-limit** — API rate limiting
-- **@tanstack/react-query** — Client-side data fetching and caching
-- **recharts** — Dashboard chart visualizations
-- **xlsx** — Excel file generation for data export
-- **docx / file-saver** — Word document generation and client-side file saving
-- **zod / drizzle-zod** — Runtime validation with schema derivation from database schema
-- **validator** — Input validation (IP address checks, etc.)
-
-### External Services
-- **Google Fonts** — Tajawal font for Arabic text, plus DM Sans and other fonts
-- **Cloudflare Tunnel** — Optional deployment mechanism for exposing local server (documented in deployment guide, not integrated in code)
-
-### Replit-Specific
-- **@replit/vite-plugin-runtime-error-modal** — Error overlay in development
-- **@replit/vite-plugin-cartographer** — Development tooling (dev only)
-- **@replit/vite-plugin-dev-banner** — Development banner (dev only)
-
-## API Key Management System (March 2026)
-
-Added a full dynamic API key management system:
-
-### New Files
-- **`server/apiKeyAuth.ts`** — `authenticateAPI` middleware that checks `x-api-key` header against the database, validating existence, active status, and expiry. Returns precise Arabic error messages (401) on failure.
-
-### Database
-- **`api_keys` table** — Stores keys with: `key_value` (64-char hex via `crypto.randomBytes(32)`), `description`, `key_type` (`human` | `machine`), `expiry_date`, `is_active`, `created_at`, `created_by`.
-
-### Backend Routes
-- `GET /api/api-keys` — List all keys (masked, admin only)
-- `POST /api/api-keys` — Create new key (generates crypto key server-side, shows full key once)
-- `PATCH /api/api-keys/:id` — Toggle active/inactive or update
-- `DELETE /api/api-keys/:id` — Delete key
-- `POST /api/auth/api-key-login` — Validate API key (for programmatic services)
-- `GET /api/v1/employees` — Example protected route requiring `x-api-key` header
-
-### Frontend
-- **`Settings.tsx`** — New `ApiKeysCard` component with table, create modal, reveal-once dialog, toggle active/inactive, delete confirmation
-- **`Login.tsx`** — Added tab system: "دخول المستخدمين" (username/password) + "مفتاح API" (validate API key for programmatic services)
-
-### Key Types (`key_type`)
-- **`human`** — Used for browser login (username + password + key). Can also be used via `x-api-key` header.
-- **`machine`** — Blocked from browser login with HTTP 403. Can only be used via `x-api-key` header for programmatic API access.
-- Login route rejects machine keys with a clear Arabic error message.
-- `/api/v1/*` routes bypass session auth middleware; protected only by `authenticateAPI` (x-api-key).
-
-### Bootstrap Mode
-- When `api_keys` table is empty, login is allowed without a key so admin can create the first key.
-- `GET /api/auth/setup-status` returns `{ apiKeyRequired: boolean }` — the login page adapts UI accordingly.
-
-### Security
-- Keys never logged to console
-- Full key shown only once at creation time; masked in all list views
-- try/catch on all DB operations to prevent server crashes
-
-## Recent Fixes (March 2026)
-
-### TypeScript Errors Fixed (0 errors now)
-1. **`AuditLogs.tsx`** — Fixed `unknown` type being passed to JSX by converting to boolean (`!!log.oldValues || !!log.newValues`)
-2. **`use-users.tsx`** — Fixed `id` type from `number` to `string` for UUID user IDs in both `updateMutation` and `deleteMutation`
-3. **`storage.ts`** — Added `as any` cast to `db.insert(employees).values(employee as any)` to resolve optional field type mismatch with Drizzle's strict types
-4. **`Sidebar.tsx`** — Removed nested `<a>` inside `<Link>` (wouter renders Link as `<a>` itself); now passes `className` directly to `<Link>` component
-
-### Build Status
-- TypeScript: ✅ 0 errors
-- Production build: ✅ Success (client + server bundles generated)
-- Runtime: ✅ Running on port 5000
+## Deployment
+- Target: Replit Autoscale
+- Build: `npm run build`
+- Run: `node ./dist/index.cjs`
+- Public dir: `dist/public`
+- Port: 5000 (mapped to external port 80)

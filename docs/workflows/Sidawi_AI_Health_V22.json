@@ -1,0 +1,559 @@
+{
+  "name": "Sidawi AI Health V22",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "3e1fee9b-ec97-4094-8a2e-21ca8aaaaab2",
+        "options": {}
+      },
+      "id": "236f256e-525e-4ccd-8334-e54366ade2ea",
+      "name": "Sidawi_Health_WH",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2128,
+        64
+      ],
+      "webhookId": "whatsapp-health-bot"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://31aa21f7-12df-4e2b-b5a2-729e2ab98957-00-2z9b8ag4ms438.picard.replit.dev/api/v1/bot/check-auth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "phoneNumber",
+              "value": "={{ $json.body.from }}"
+            },
+            {
+              "name": "activationCode",
+              "value": "={{ $json.body.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a9f5f253-1989-40dd-9e82-19dd383c580b",
+      "name": "Verify Identity1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1856,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a1b2c3d4-0001-0001-0001-000000000001",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "activated",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "تفعيل"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a1b2c3d4-0002-0002-0002-000000000002",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "deactivated",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "إيقاف يدوي"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a1b2c3d4-0003-0003-0003-000000000003",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "auto_deactivated",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "إيقاف تلقائي"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a1b2c3d4-0004-0004-0004-000000000004",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "message",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "رسالة للذكاء"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "069bb0c6-92a7-4fc6-914d-09b14771ccd8",
+      "name": "Route by Action1",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1632,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8082/send-text",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Sidawi_Health_WH').item.json.body.from }}"
+            },
+            {
+              "name": "message",
+              "value": "=مرحباً {{ $('Verify Identity1').item.json.full_name }} 👋\n\nتم تفعيل البوت بنجاح! يمكنك الآن طرح أي سؤال عن بيانات الموظفين في مديرية الصحة.\n\n💡 للإيقاف في أي وقت، أرسل كود الإيقاف."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "01d7fe01-c77d-47aa-a242-152e5f172159",
+      "name": "WhatsApp Welcome1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1040,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8082/send-text",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Sidawi_Health_WH').item.json.body.from }}"
+            },
+            {
+              "name": "message",
+              "value": "تم إيقاف البوت ✋\n\nلن يتم الرد على رسائلك حتى تقوم بإرسال كود التفعيل مجدداً."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "587850ee-3495-4822-a28a-87ce68469419",
+      "name": "WhatsApp Goodbye1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1040,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8082/send-text",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Sidawi_Health_WH').item.json.body.from }}"
+            },
+            {
+              "name": "message",
+              "value": "⏰ تم إيقاف البوت تلقائياً بسبب عدم النشاط لمدة 10 دقائق.\n\nأرسل كود التفعيل لإعادة تشغيله."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eb6dd723-df58-4c2f-823b-c8736d243dc6",
+      "name": "WhatsApp Auto Timeout1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1040,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $node[\"Sidawi_Health_WH\"].json.body.content }}",
+        "options": {
+          "systemMessage": "=أنت 'النظام الخبير للإدارة التقنية والذاتية' بمديرية الصحة. الموظف المصرَّح له الذي يتواصل معك الآن هو: {{ $('Verify Identity1').item.json.full_name }}.\n\n=====================================\nقواعد صارمة - لا استثناءات مطلقاً\n=====================================\n\n[1] استدعاء الأداة إلزامي:\n- لكل استفسار عن موظف أو إحصاءات أو مستندات، يجب استدعاء أداة fetch_employee_database أولاً، قبل أي رد.\n- إذا لم تستدعِ الأداة، فأنت لا تملك أي بيانات ولا يحق لك الرد.\n- يُحظر تماماً استخدام أي معلومة من معرفتك التدريبية عن أي شخص، حتى لو بدا الاسم مألوفاً جداً مثل \"طارق\" أو \"محمد\" أو أي اسم آخر.\n\n[2] الموظف غير الموجود - قاعدة حرفية:\n- إذا بحثت في نتائج أداة fetch_employee_database ولم تجد الموظف المطلوب:\n  الرد الوحيد المسموح به: \"لا يوجد موظف بهذا الاسم أو الرقم في قاعدة بيانات المديرية.\"\n- لا تضف أي كلام إضافي. لا تقترح أسماء بديلة. لا تخمن. لا تذكر موظفين آخرين.\n\n[3] المستندات - قاعدة صارمة:\n- المستندات تُعرض فقط من حقل direct_url الوارد في بيانات الموظف من أداة fetch_employee_database.\n- إذا كان حقل المستندات فارغاً في سجل الموظف:\n  الرد: \"لا توجد مستندات مرفقة بسجل هذا الموظف في قاعدة البيانات.\"\n- يُحظر تماماً اختراع روابط أو وصف مستندات غير موجودة في البيانات الفعلية.\n\n[4] ملف Word:\n- استخدم أداة generate_word_link فقط عند الطلب الصريح لملف Word أو وثيقة رسمية.\n- يجب الحصول على nationalId من fetch_employee_database أولاً ثم تمريره لهذه الأداة.\n- أرسل رابط downloadUrl للمستخدم مباشرةً دون تعديل.\n\n[5] نطاق الردود:\n- اللغة العربية الفصيحة دائماً، مختصرة وواضحة.\n- إذا كان السؤال خارج نطاق بيانات موظفي المديرية:\n  الرد: \"أنا متخصص في بيانات موظفي المديرية فقط، لا أستطيع المساعدة في هذا الموضوع.\""
+        }
+      },
+      "id": "486f1092-2d4c-4652-9ba4-59859c38f441",
+      "name": "AI Agent Router1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        -1344,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "أداة الوصول الشاملة لقاعدة بيانات المديرية. تعيد كافة سجلات الموظفين، الأقسام، الإحصائيات، وروابط المستندات المباشرة. استخدمها للرد على أي استفسار معلوماتي عام أو إحصائي.",
+        "url": "https://31aa21f7-12df-4e2b-b5a2-729e2ab98957-00-2z9b8ag4ms438.picard.replit.dev/api/v1/bot/master-query?_t=3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "x-api-key",
+              "valueProvider": "fieldValue",
+              "value": "3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4"
+            }
+          ]
+        }
+      },
+      "id": "7b2e11fc-92b3-46a7-9082-c812e42073b1",
+      "name": "fetch_employee_database1",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -1024,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "أداة توليد بطاقة الموظف كملف Word (docx) وإرجاع رابط تنزيل مباشر. استخدمها عندما يطلب الموظف بياناته أو ملفه الوظيفي كوثيقة Word. يجب تمرير أحد المعاملات: nationalId (الرقم الوطني) أو name (اسم الموظف). مثال: nationalId=01020148001 أو name=طارق أحمد السيد",
+        "url": "https://31aa21f7-12df-4e2b-b5a2-729e2ab98957-00-2z9b8ag4ms438.picard.replit.dev/api/v1/bot/generate-word-link",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "nationalId",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "name",
+              "valueProvider": "modelOptional"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "x-api-key",
+              "valueProvider": "fieldValue",
+              "value": "3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4"
+            }
+          ]
+        }
+      },
+      "id": "5616a4a3-1bfb-43c3-9b70-ef754202c4fc",
+      "name": "generate_word_link1",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -864,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.17.0.1:8082/send-text",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Sidawi_Health_WH').item.json.body.from }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "31c4e60c-cac5-4f8c-aae0-a920873592ad",
+      "name": "WhatsApp AI Output1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1040,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Sidawi_Health_WH').item.json.body.from }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1184,
+        416
+      ],
+      "id": "b97ecb59-fd1a-4124-9893-7dfac260c695",
+      "name": "Conversation Memory1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1344,
+        432
+      ],
+      "id": "f0a0701d-fe80-4b6b-9739-6378e477e08a",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Hxp1njnkn8szDJPn",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "أداة تصدير بيانات جميع الموظفين كملف Excel (xlsx) وإرجاع رابط تنزيل مباشر. استخدمها عندما يطلب المستخدم بيانات الموظفين كملف إكسل أو جدول بيانات. لا تحتاج أي معاملات إضافية.",
+        "url": "https://31aa21f7-12df-4e2b-b5a2-729e2ab98957-00-2z9b8ag4ms438.picard.replit.dev/api/v1/bot/generate-excel-link",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "x-api-key",
+              "valueProvider": "fieldValue",
+              "value": "3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4"
+            }
+          ]
+        }
+      },
+      "id": "c6e31daf-bd72-4508-b861-454f87386003",
+      "name": "export_excel_tool",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -704,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Sidawi_Health_WH": {
+      "main": [
+        [
+          {
+            "node": "Verify Identity1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Identity1": {
+      "main": [
+        [
+          {
+            "node": "Route by Action1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action1": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp Welcome1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Goodbye1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Auto Timeout1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent Router1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent Router1": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp AI Output1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_employee_database1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Router1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate_word_link1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Router1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent Router1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent Router1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "export_excel_tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent Router1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "v22-updated-urls",
+  "meta": {
+    "instanceId": "9209d1367e21b216f13b9563bb21cb1c1fcb732cef287186a2e347fcf573779c"
+  },
+  "id": "Kvbm6sRK6gw2rzlp",
+  "tags": []
+}
