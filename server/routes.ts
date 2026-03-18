@@ -1834,6 +1834,57 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         updated_at: new Date(s.updatedAt).toISOString(),
       }));
 
+      // ── Generate a fresh Excel link to embed in the response ─────────────
+      let excel_download_url = "";
+      try {
+        const fmtDateXls = (d: Date | string | null | undefined) => {
+          if (!d) return "";
+          const dt = new Date(d as string);
+          if (dt.getFullYear() <= 1970) return "";
+          return format(dt, "dd/MM/yyyy");
+        };
+        const xlsRows = allEmployees.map((emp) => ({
+          "الاسم والكنية": emp.fullName,
+          "اسم الأب": emp.fatherName,
+          "اسم الأم": emp.motherName,
+          "مكان الولادة": emp.placeOfBirth,
+          "تاريخ الولادة": fmtDateXls(emp.dateOfBirth),
+          "محل ورقم القيد": emp.registryPlaceAndNumber,
+          "الرقم الوطني": emp.nationalId,
+          "رقم شام كاش": emp.shamCashNumber || "",
+          "الجنس": emp.gender,
+          "الشهادة": emp.certificate || "",
+          "نوع الشهادة": emp.certificateType || "",
+          "الاختصاص": emp.specialization || "",
+          "الصفة الوظيفية": emp.jobTitle,
+          "الفئة": emp.category,
+          "الوضع الوظيفي": emp.employmentStatus,
+          "رقم قرار التعيين": emp.appointmentDecisionNumber,
+          "تاريخ قرار التعيين": fmtDateXls(emp.appointmentDecisionDate),
+          "أول مباشرة بالدولة": fmtDateXls(emp.firstStateStart),
+          "أول مباشرة بالمديرية": fmtDateXls(emp.firstDirectorateStart),
+          "أول مباشرة بالقسم": fmtDateXls(emp.firstDepartmentStart),
+          "وضع العامل الحالي": emp.currentStatus,
+          "العمل المكلف به": emp.assignedWork,
+          "رقم الجوال": emp.mobile,
+          "العنوان": emp.address,
+          "ملاحظات": emp.notes || "",
+        }));
+        const xlsWorksheet = XLSX.utils.json_to_sheet(xlsRows);
+        const xlsWorkbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(xlsWorkbook, xlsWorksheet, "الموظفون");
+        const xlsBuffer: Buffer = XLSX.write(xlsWorkbook, { bookType: "xlsx", type: "buffer" });
+        const excelExportsDir = path.join(process.cwd(), "storage", "uploads", "excel_exports");
+        await fs.mkdir(excelExportsDir, { recursive: true });
+        const xlsFileName = `تقرير_الموظفين_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
+        await fs.writeFile(path.join(excelExportsDir, xlsFileName), xlsBuffer);
+        excel_download_url = `${baseUrl}/api/v1/files/uploads/excel_exports/${encodeURIComponent(xlsFileName)}?_t=${apiKeyToken}`;
+      } catch (xlsErr) {
+        console.error("[master-query] Excel link generation failed:", xlsErr);
+      }
+
+      const wordBaseUrl = `${baseUrl}/api/v1/bot/generate-word-link`;
+
       return res.json({
         status: "success",
         metadata: {
@@ -1841,6 +1892,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           total_employees: employees_data.length,
           total_bot_users: bot_users_data.length,
           total_settings: settings_data.length,
+        },
+        bot_capabilities: {
+          excel_export: {
+            description: "رابط تنزيل ملف Excel جاهز يحتوي على جميع بيانات الموظفين. شاركه مباشرةً مع المستخدم عند طلب ملف إكسل أو جدول بيانات.",
+            download_url: excel_download_url,
+            employee_count: employees_data.length,
+          },
+          word_card: {
+            description: "لتوليد بطاقة موظف Word، استخدم الرابط التالي مع إضافة nationalId أو name كمعامل. مثال: " + wordBaseUrl + "?nationalId=XXXXXXXXX&_t=" + apiKeyToken,
+            url_template: wordBaseUrl,
+            api_key_param: "_t=" + apiKeyToken,
+            usage: "أضف ?nationalId=رقم_وطني أو ?name=اسم_الموظف لتوليد بطاقة الموظف",
+          },
         },
         statistics,
         data: {
