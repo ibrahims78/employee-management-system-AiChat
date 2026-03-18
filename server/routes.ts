@@ -1991,6 +1991,114 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── GET /api/v1/bot/generate-word-link  ───────────────────────────────────
+  // Generates a Word employee card, saves it to storage/uploads/word_exports/,
+  // and returns a publicly accessible download URL for use in WhatsApp.
+  // Query params: employeeId=<number>  OR  nationalId=<string>
+  app.get("/api/v1/bot/generate-word-link", authenticateMachineAPI, async (req, res) => {
+    try {
+      let employee: Employee | undefined;
+
+      if (req.query.employeeId) {
+        const id = parseInt(req.query.employeeId as string);
+        if (!isNaN(id)) employee = await storage.getEmployee(id);
+      } else if (req.query.nationalId) {
+        const allEmps = await storage.getEmployees(false, 1, 100000, true, true);
+        employee = allEmps.find(e => e.nationalId === (req.query.nationalId as string).trim());
+      }
+
+      if (!employee) {
+        return res.status(404).json({ status: "error", message: "الموظف غير موجود" });
+      }
+
+      const fmtDate = (d: Date | string | null | undefined) => {
+        if (!d) return "";
+        const dt = new Date(d as string);
+        if (dt.getFullYear() <= 1970) return "";
+        return format(dt, "dd/MM/yyyy");
+      };
+
+      const field = (label: string, value: string) =>
+        new Paragraph({
+          children: [
+            new TextRun({ text: `${label}: `, bold: true, rightToLeft: true }),
+            new TextRun({ text: value || "", rightToLeft: true }),
+          ],
+          alignment: AlignmentType.RIGHT,
+          spacing: { before: 100 },
+        });
+
+      const doc = new DocxDocument({
+        sections: [{
+          properties: {},
+          children: [
+            new Paragraph({ text: "بطاقة موظف التفصيلية", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+            new Paragraph({ text: "" }),
+            new Paragraph({ children: [new TextRun({ text: "البيانات الشخصية:", bold: true, size: 32, rightToLeft: true, color: "2b6cb0" })], alignment: AlignmentType.RIGHT }),
+            field("الاسم والكنية", employee.fullName),
+            field("اسم الأب", employee.fatherName),
+            field("اسم الأم", employee.motherName),
+            field("مكان الولادة", employee.placeOfBirth),
+            field("تاريخ الولادة", fmtDate(employee.dateOfBirth)),
+            field("محل ورقم القيد", employee.registryPlaceAndNumber),
+            field("الرقم الوطني", employee.nationalId),
+            field("رقم شام كاش", employee.shamCashNumber || "غير متوفر"),
+            field("الجنس", employee.gender),
+            field("رقم الجوال", employee.mobile),
+            field("العنوان", employee.address),
+            new Paragraph({ text: "" }),
+            new Paragraph({ children: [new TextRun({ text: "البيانات الوظيفية:", bold: true, size: 32, rightToLeft: true, color: "2b6cb0" })], alignment: AlignmentType.RIGHT }),
+            field("الشهادة", employee.certificate || ""),
+            field("نوع الشهادة", employee.certificateType || ""),
+            field("الاختصاص", employee.specialization || ""),
+            field("الصفة الوظيفية", employee.jobTitle),
+            field("الفئة", employee.category),
+            field("الوضع الوظيفي", employee.employmentStatus),
+            field("رقم قرار التعيين", employee.appointmentDecisionNumber),
+            field("تاريخ قرار التعيين", fmtDate(employee.appointmentDecisionDate)),
+            field("أول مباشرة بالدولة", fmtDate(employee.firstStateStart)),
+            field("أول مباشرة بالمديرية", fmtDate(employee.firstDirectorateStart)),
+            field("أول مباشرة بالقسم", fmtDate(employee.firstDepartmentStart)),
+            field("وضع العامل الحالي", employee.currentStatus),
+            field("العمل المكلف به", employee.assignedWork),
+            field("ملاحظات", employee.notes || "لا يوجد"),
+          ],
+        }],
+      });
+
+      const buffer = await Packer.toBuffer(doc);
+
+      // Save to storage/uploads/word_exports/
+      const wordExportsDir = path.join(process.cwd(), "storage", "uploads", "word_exports");
+      await fs.mkdir(wordExportsDir, { recursive: true });
+
+      const safeFileName = `بطاقة_${employee.nationalId}_${format(new Date(), "yyyyMMdd_HHmmss")}.docx`;
+      const filePath = path.join(wordExportsDir, safeFileName);
+      await fs.writeFile(filePath, buffer);
+
+      // Build the public download URL using the /api/v1/files/ route
+      const apiKey = (req.headers["x-api-key"] ?? req.query._t) as string;
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : `http://localhost:${process.env.PORT || 5000}`;
+
+      const downloadUrl = `${baseUrl}/api/v1/files/uploads/word_exports/${encodeURIComponent(safeFileName)}?_t=${apiKey}`;
+
+      console.log(`[Bot generate-word-link] Generated Word card for ${employee.fullName}: ${safeFileName}`);
+
+      res.json({
+        status: "success",
+        employeeName: employee.fullName,
+        downloadUrl,
+        fileName: safeFileName,
+        message: `تم إنشاء بطاقة الموظف ${employee.fullName} بنجاح. رابط التنزيل: ${downloadUrl}`,
+      });
+    } catch (err) {
+      console.error("[Bot generate-word-link] Error:", err);
+      res.status(500).json({ status: "error", message: "خطأ في إنشاء ملف Word" });
+    }
+  });
+
   // ─── Background Cron: Deactivate inactive bot sessions every 60 seconds ───
   const INACTIVITY_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
   setInterval(async () => {
