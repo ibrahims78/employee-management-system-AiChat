@@ -11,7 +11,7 @@ import {
   Eye, Trash2, AlertTriangle, ClipboardList, Loader2, Search,
   LogIn, LogOut, UserPlus, UserPen, UserMinus, FilePlus, FilePen,
   FileX, Paperclip, DatabaseBackup, ArchiveRestore, Archive, Filter,
-  ChevronRight, ChevronLeft,
+  ChevronRight, ChevronLeft, MessageSquare,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -45,12 +45,14 @@ const ACTION_META: Record<string, { label: string; color: string; icon: any; des
   IMPORT:            { label: 'استيراد',      color: 'bg-cyan-500/15 text-cyan-700 border-cyan-500/30 dark:text-cyan-400',         icon: Archive,        description: 'استيراد بيانات من Excel' },
   BACKUP_CREATED:    { label: 'نسخ احتياطي',  color: 'bg-indigo-500/15 text-indigo-700 border-indigo-500/30 dark:text-indigo-400', icon: DatabaseBackup, description: 'إنشاء نسخة احتياطية' },
   BACKUP_RESTORED:   { label: 'استعادة نسخة', color: 'bg-orange-500/15 text-orange-700 border-orange-500/30 dark:text-orange-400', icon: ArchiveRestore, description: 'استعادة نسخة احتياطية' },
-  BACKUP_DELETED:    { label: 'حذف نسخة',     color: 'bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-400',    icon: Trash2,         description: 'حذف نسخة احتياطية' },
-  RESTORE:           { label: 'استعادة',      color: 'bg-orange-500/15 text-orange-700 border-orange-500/30 dark:text-orange-400', icon: ArchiveRestore, description: 'استعادة بيانات' },
+  BACKUP_DELETED:    { label: 'حذف نسخة',       color: 'bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-400',      icon: Trash2,          description: 'حذف نسخة احتياطية' },
+  RESTORE:           { label: 'استعادة',        color: 'bg-orange-500/15 text-orange-700 border-orange-500/30 dark:text-orange-400',  icon: ArchiveRestore,  description: 'استعادة بيانات' },
+  BOT_CONVERSATION:  { label: 'محادثة بوت',     color: 'bg-teal-500/15 text-teal-700 border-teal-500/30 dark:text-teal-400',          icon: MessageSquare,   description: 'محادثة موظف مع بوت واتساب/تيليجرام' },
 };
 
 const ENTITY_LABELS: Record<string, string> = {
   EMPLOYEE: 'موظف', USER: 'مستخدم', SETTING: 'إعداد', BACKUP: 'نسخة احتياطية', SYSTEM: 'النظام',
+  BOT_USER: 'مستخدم البوت',
 };
 
 const FIELD_NAMES: Record<string, string> = {
@@ -69,6 +71,11 @@ const FIELD_NAMES: Record<string, string> = {
 };
 
 function buildChangeSummary(action: string, oldV: any, newV: any): string {
+  if (action === 'BOT_CONVERSATION') {
+    const src = newV?.source === 'telegram' ? 'تيليجرام' : 'واتساب';
+    const q   = newV?.userMessage ? `"${String(newV.userMessage).substring(0, 60)}${newV.userMessage.length > 60 ? '…' : ''}"` : '';
+    return `رسالة ${src}${q ? ': ' + q : ''}`;
+  }
   if (action === 'LOGIN')          return `تسجيل دخول إلى النظام${newV?.loginTime ? ' في ' + format(new Date(newV.loginTime), 'HH:mm:ss') : ''}`;
   if (action === 'LOGOUT')         return `تسجيل خروج من النظام${newV?.logoutTime ? ' في ' + format(new Date(newV.logoutTime), 'HH:mm:ss') : ''}`;
   if (action === 'BACKUP_CREATED') return `تم إنشاء نسخة احتياطية${newV?.filename ? ': ' + newV.filename : ''}`;
