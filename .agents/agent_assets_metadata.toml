@@ -102,3 +102,9 @@ id = "9psgodS7rfJvV_c6gdLkL"
 uri = "file://docs/workflows/Sidawi_AI_Health_V22_production.json"
 type = "unspecified"
 title = "Sidawi AI Health V22 - Workflow محدّث"
+
+[[outputs]]
+id = "F_4-4T563Ll1PolQxWUma"
+uri = "file://docs/API_KEYS_GUIDE.md"
+type = "text"
+title = "دليل مفاتيح API وأكواد التفعيل/الإلغاء"

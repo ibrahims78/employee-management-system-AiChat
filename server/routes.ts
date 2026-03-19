@@ -1388,8 +1388,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           });
         }
 
-        // LID معروف + جلسة منتهية + لا كود صالح → صامت
-        return res.json({ authorized: false, action: "unauthorized" });
+        // LID معروف + جلسة منتهية + لا كود صالح → إخبار المستخدم بانتهاء الجلسة
+        return res.json({
+          authorized: false,
+          action: "auto_deactivated",
+          full_name: botUser.fullName,
+        });
       }
 
       // ── 2. LID غير معروف → البحث عبر الكود مع التحقق من رقم الهاتف ──────────
