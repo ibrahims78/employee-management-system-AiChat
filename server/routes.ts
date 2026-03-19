@@ -1344,8 +1344,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       if (botUser) {
         // الأولوية الأعلى: كود الإيقاف → إيقاف فوري
+        // autoDeactivationNotified=true: الإيقاف يدوي، لا حاجة لإرسال إشعار تلقائي لاحقاً
         if (incomingCode && incomingCode === botUser.deactivationCode) {
-          await storage.updateBotUser(botUser.id, { isBotActive: false, lastInteraction: new Date() });
+          await storage.updateBotUser(botUser.id, {
+            isBotActive: false,
+            lastInteraction: new Date(),
+            autoDeactivationNotified: true,
+          });
           return res.json({
             authorized: true,
             is_bot_active: false,
@@ -1358,8 +1363,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (botUser.isBotActive) {
           // الجلسة نشطة → فحص timeout 5 دقائق
           if (isTimedOut(botUser.lastInteraction as Date | null)) {
-            // انتهت مدة 5 دقائق → إيقاف تلقائي
-            await storage.updateBotUser(botUser.id, { isBotActive: false, lastInteraction: new Date() });
+            // انتهت مدة 5 دقائق → إيقاف تلقائي + تسجيل أن الإشعار أُرسل
+            await storage.updateBotUser(botUser.id, {
+              isBotActive: false,
+              lastInteraction: new Date(),
+              autoDeactivationNotified: true,
+            });
             return res.json({
               authorized: true,
               is_bot_active: false,
@@ -1379,9 +1388,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           });
         }
 
-        // LID معروف + جلسة منتهية → نفحص كود التفعيل
+        // LID معروف + جلسة منتهية → نفحص كود التفعيل أولاً
         if (incomingCode && incomingCode === botUser.activationCode) {
-          await storage.updateBotUser(botUser.id, { isBotActive: true, lastInteraction: new Date() });
+          await storage.updateBotUser(botUser.id, {
+            isBotActive: true,
+            lastInteraction: new Date(),
+            autoDeactivationNotified: false,
+          });
           return res.json({
             authorized: true,
             is_bot_active: true,
@@ -1391,12 +1404,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           });
         }
 
-        // LID معروف + جلسة منتهية + لا كود صالح → إخبار المستخدم بانتهاء الجلسة
-        return res.json({
-          authorized: false,
-          action: "auto_deactivated",
-          full_name: botUser.fullName,
-        });
+        // LID معروف + جلسة منتهية + لا كود تفعيل صالح
+        // → إذا لم يُرسل إشعار الإيقاف التلقائي بعد: أرسله مرة واحدة فقط
+        if (!botUser.autoDeactivationNotified) {
+          await storage.updateBotUser(botUser.id, { autoDeactivationNotified: true });
+          return res.json({
+            authorized: false,
+            action: "auto_deactivated",
+            full_name: botUser.fullName,
+          });
+        }
+
+        // الإشعار أُرسل مسبقاً → صمت تام حتى يُرسل كود التفعيل
+        return res.json({ authorized: false, action: "unauthorized" });
       }
 
       // ── 2. LID غير معروف → البحث عبر الكود مع التحقق من رقم الهاتف ──────────
@@ -1441,6 +1461,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           whatsappLid: incomingLid,
           isBotActive: true,
           lastInteraction: new Date(),
+          autoDeactivationNotified: false,
         });
         return res.json({
           authorized: true,
@@ -1468,7 +1489,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           }
           console.log(`[check-auth] إيقاف عبر LID (${incomingLid}) → لا مقارنة هاتفية ممكنة، مقبول بالكود`);
         }
-        await storage.updateBotUser(deactivationMatch.id, { isBotActive: false, lastInteraction: new Date() });
+        await storage.updateBotUser(deactivationMatch.id, {
+          isBotActive: false,
+          lastInteraction: new Date(),
+          autoDeactivationNotified: true,
+        });
         return res.json({
           authorized: true,
           is_bot_active: false,

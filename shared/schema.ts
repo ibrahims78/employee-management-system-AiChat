@@ -143,6 +143,7 @@ export const botUsers = pgTable("bot_users", {
   deactivationCode: text("deactivation_code").notNull(),
   isBotActive: boolean("is_bot_active").notNull().default(false),
   lastInteraction: timestamp("last_interaction"),
+  autoDeactivationNotified: boolean("auto_deactivation_notified").notNull().default(false),
 });
 
 export const insertBotUserSchema = createInsertSchema(botUsers).omit({ id: true });
