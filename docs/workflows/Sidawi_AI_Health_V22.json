@@ -8,7 +8,7 @@
         "options": {}
       },
       "id": "e8ee80c7-d96e-4b8e-bb63-a5e684107830",
-      "name": "Sidawi_Health_WH",
+      "name": "Sidawi_WH",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
@@ -46,7 +46,7 @@
         "options": {}
       },
       "id": "68637e62-71d3-4e0d-a9d7-64a86c0a756d",
-      "name": "Verify Identity1",
+      "name": "Verify_Identity",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
@@ -165,7 +165,7 @@
         }
       },
       "id": "3d705e1c-2f5e-4056-a2c6-1a1e16fe3466",
-      "name": "Route by Action1",
+      "name": "Route_by_Action",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
@@ -193,7 +193,7 @@
         "options": {}
       },
       "id": "b39e8955-35d8-4baa-b23f-efb55d09d281",
-      "name": "WhatsApp Welcome1",
+      "name": "WA_Welcome",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
@@ -221,7 +221,7 @@
         "options": {}
       },
       "id": "f32ad945-94ec-4975-91d8-1353ecf47376",
-      "name": "WhatsApp Goodbye1",
+      "name": "WA_Goodbye",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
@@ -249,7 +249,7 @@
         "options": {}
       },
       "id": "592f114a-52aa-4a95-9a3e-ede79e3f1c31",
-      "name": "WhatsApp Auto Timeout1",
+      "name": "WA_AutoTimeout",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
@@ -262,11 +262,11 @@
         "promptType": "define",
         "text": "={{ $node[\"Sidawi_Health_WH\"].json.body.content }}",
         "options": {
-          "systemMessage": "=أنت 'النظام الخبير للإدارة التقنية والذاتية' بمديرية الصحة. الموظف المصرَّح له الذي يتواصل معك الآن هو: {{ $('Verify Identity1').item.json.full_name }}.\n\n=====================================\nقواعد صارمة - لا استثناءات مطلقاً\n=====================================\n\n[1] استدعاء الأداة إلزامي:\n- لكل استفسار عن موظف أو إحصاءات أو مستندات، يجب استدعاء أداة fetch_employee_database أولاً، قبل أي رد.\n- إذا لم تستدعِ الأداة، فأنت لا تملك أي بيانات ولا يحق لك الرد.\n- يُحظر تماماً استخدام أي معلومة من معرفتك التدريبية عن أي شخص، حتى لو بدا الاسم مألوفاً جداً مثل \"طارق\" أو \"محمد\" أو أي اسم آخر.\n- لملف Excel المخصص: استخدم export_excel_tool مع الفلاتر المناسبة لطلب المستخدم.\n\n[2] الموظف غير الموجود - قاعدة حرفية:\n- إذا بحثت في نتائج أداة fetch_employee_database ولم تجد الموظف المطلوب:\n  الرد الوحيد المسموح به: \"لا يوجد موظف بهذا الاسم أو الرقم في قاعدة بيانات المديرية.\"\n- لا تضف أي كلام إضافي. لا تقترح أسماء بديلة. لا تخمن. لا تذكر موظفين آخرين.\n\n[3] المستندات - قاعدة صارمة:\n- المستندات تُعرض فقط من حقل direct_url الوارد في بيانات الموظف من أداة fetch_employee_database.\n- إذا كان حقل المستندات فارغاً في سجل الموظف:\n  الرد: \"لا توجد مستندات مرفقة بسجل هذا الموظف في قاعدة البيانات.\"\n- يُحظر تماماً اختراع روابط أو وصف مستندات غير موجودة في البيانات الفعلية.\n\n[4] ملف Word:\n- استخدم أداة generate_word_link فقط عند الطلب الصريح لملف Word أو وثيقة رسمية.\n- يجب الحصول على nationalId من fetch_employee_database أولاً ثم تمريره لهذه الأداة.\n- أرسل رابط downloadUrl للمستخدم مباشرةً دون تعديل.\n\n[5] ملف Excel المخصص:\n- استخدم export_excel_tool دائماً عند طلب ملف Excel.\n- حدِّد الفلاتر المناسبة بناءً على ما يطلبه المستخدم تحديداً:\n  • status: وضع العامل الحالي (على رأس عمله / إجازة / نقل / ...)\n  • category: الفئة (طبي / تمريض / إداري / تقني / ...)\n  • gender: الجنس (ذكر / أنثى)\n  • employmentStatus: نوع التوظيف (دائم / مؤقت / عقد)\n  • assignedWork: العمل المكلف به\n  • search: بحث نصي بالاسم أو الرقم الوطني أو رقم الجوال\n- لاختيار أعمدة محددة: مرّر columns كأسماء أعمدة مفصولة بفاصلة.\n  الأعمدة المتاحة: الاسم والكنية، اسم الأب، اسم الأم، مكان الولادة، تاريخ الولادة، محل ورقم القيد، الرقم الوطني، رقم شام كاش، الجنس، الشهادة، نوع الشهادة، الاختصاص، الصفة الوظيفية، الفئة، الوضع الوظيفي، رقم قرار التعيين، تاريخ قرار التعيين، أول مباشرة بالدولة، أول مباشرة بالمديرية، أول مباشرة بالقسم، وضع العامل الحالي، العمل المكلف به، رقم الجوال، العنوان، ملاحظات\n  مثال: columns=الاسم والكنية,الصفة الوظيفية,رقم الجوال\n- يمكن تمرير title لتسمية الملف.\n- إذا لم يحدد المستخدم أي فلتر أو عمود: أرسل بدون معاملات لتصدير الكل.\n- أرسل رابط downloadUrl للمستخدم مباشرةً.\n\n[6] نطاق الردود:\n- اللغة العربية الفصيحة دائماً، مختصرة وواضحة.\n- إذا كان السؤال خارج نطاق بيانات موظفي المديرية:\n  الرد: \"أنا متخصص في بيانات موظفي المديرية فقط، لا أستطيع المساعدة في هذا الموضوع.\""
+          "systemMessage": "=أنت 'النظام الخبير للإدارة التقنية والذاتية' بمديرية الصحة. الموظف المصرَّح له الذي يتواصل معك الآن هو: {{ $json.full_name }}.\n\n=====================================\nقواعد صارمة - لا استثناءات مطلقاً\n=====================================\n\n[1] استدعاء الأداة إلزامي:\n- لكل استفسار عن موظف أو إحصاءات أو مستندات، يجب استدعاء أداة fetch_employee_database أولاً، قبل أي رد.\n- إذا لم تستدعِ الأداة، فأنت لا تملك أي بيانات ولا يحق لك الرد.\n- يُحظر تماماً استخدام أي معلومة من معرفتك التدريبية عن أي شخص، حتى لو بدا الاسم مألوفاً جداً مثل \"طارق\" أو \"محمد\" أو أي اسم آخر.\n- لملف Excel المخصص: استخدم export_excel_tool مع الفلاتر المناسبة لطلب المستخدم.\n\n[2] الموظف غير الموجود - قاعدة حرفية:\n- إذا بحثت في نتائج أداة fetch_employee_database ولم تجد الموظف المطلوب:\n  الرد الوحيد المسموح به: \"لا يوجد موظف بهذا الاسم أو الرقم في قاعدة بيانات المديرية.\"\n- لا تضف أي كلام إضافي. لا تقترح أسماء بديلة. لا تخمن. لا تذكر موظفين آخرين.\n\n[3] المستندات - قاعدة صارمة:\n- المستندات تُعرض فقط من حقل direct_url الوارد في بيانات الموظف من أداة fetch_employee_database.\n- إذا كان حقل المستندات فارغاً في سجل الموظف:\n  الرد: \"لا توجد مستندات مرفقة بسجل هذا الموظف في قاعدة البيانات.\"\n- يُحظر تماماً اختراع روابط أو وصف مستندات غير موجودة في البيانات الفعلية.\n\n[4] ملف Word:\n- استخدم أداة generate_word_link فقط عند الطلب الصريح لملف Word أو وثيقة رسمية.\n- يجب الحصول على nationalId من fetch_employee_database أولاً ثم تمريره لهذه الأداة.\n- أرسل رابط downloadUrl للمستخدم مباشرةً دون تعديل.\n\n[5] ملف Excel المخصص:\n- استخدم export_excel_tool دائماً عند طلب ملف Excel.\n- حدِّد الفلاتر المناسبة بناءً على ما يطلبه المستخدم تحديداً:\n  • status: وضع العامل الحالي (على رأس عمله / إجازة / نقل / ...)\n  • category: الفئة (طبي / تمريض / إداري / تقني / ...)\n  • gender: الجنس (ذكر / أنثى)\n  • employmentStatus: نوع التوظيف (دائم / مؤقت / عقد)\n  • assignedWork: العمل المكلف به\n  • search: بحث نصي بالاسم أو الرقم الوطني أو رقم الجوال\n- لاختيار أعمدة محددة: مرّر columns كأسماء أعمدة مفصولة بفاصلة.\n  الأعمدة المتاحة: الاسم والكنية، اسم الأب، اسم الأم، مكان الولادة، تاريخ الولادة، محل ورقم القيد، الرقم الوطني، رقم شام كاش، الجنس، الشهادة، نوع الشهادة، الاختصاص، الصفة الوظيفية، الفئة، الوضع الوظيفي، رقم قرار التعيين، تاريخ قرار التعيين، أول مباشرة بالدولة، أول مباشرة بالمديرية، أول مباشرة بالقسم، وضع العامل الحالي، العمل المكلف به، رقم الجوال، العنوان، ملاحظات\n  مثال: columns=الاسم والكنية,الصفة الوظيفية,رقم الجوال\n- يمكن تمرير title لتسمية الملف.\n- إذا لم يحدد المستخدم أي فلتر أو عمود: أرسل بدون معاملات لتصدير الكل.\n- أرسل رابط downloadUrl للمستخدم مباشرةً.\n\n[6] نطاق الردود:\n- اللغة العربية الفصيحة دائماً، مختصرة وواضحة.\n- إذا كان السؤال خارج نطاق بيانات موظفي المديرية:\n  الرد: \"أنا متخصص في بيانات موظفي المديرية فقط، لا أستطيع المساعدة في هذا الموضوع.\""
         }
       },
       "id": "01da5da9-7f3f-48fb-85b9-9029bf452486",
-      "name": "AI Agent Router1",
+      "name": "AI_Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.6,
       "position": [
@@ -290,7 +290,7 @@
         }
       },
       "id": "acb65140-a092-40f7-9a52-971452637cb6",
-      "name": "fetch_employee_database1",
+      "name": "fetch_employee_database",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
@@ -327,7 +327,7 @@
         }
       },
       "id": "1234f010-bb7a-44a5-b61b-09832fff30ea",
-      "name": "generate_word_link1",
+      "name": "generate_word_link",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
@@ -355,7 +355,7 @@
         "options": {}
       },
       "id": "561c62e6-cc6d-46fe-88f8-68ff848203e7",
-      "name": "WhatsApp AI Output1",
+      "name": "WA_AI_Output",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
@@ -375,7 +375,7 @@
         256
       ],
       "id": "ab479d31-0a34-415b-8006-46acfc661c9f",
-      "name": "Conversation Memory1"
+      "name": "Conversation_Memory"
     },
     {
       "parameters": {
@@ -388,7 +388,7 @@
         272
       ],
       "id": "8e101c41-0788-4b13-9fa8-1c3094fddb1b",
-      "name": "Google Gemini Chat Model1",
+      "name": "Gemini_Model",
       "credentials": {
         "googlePalmApi": {
           "id": "Hxp1njnkn8szDJPn",
@@ -403,14 +403,38 @@
         "sendQuery": true,
         "parametersQuery": {
           "values": [
-            { "name": "status", "valueProvider": "modelOptional" },
-            { "name": "category", "valueProvider": "modelOptional" },
-            { "name": "gender", "valueProvider": "modelOptional" },
-            { "name": "employmentStatus", "valueProvider": "modelOptional" },
-            { "name": "assignedWork", "valueProvider": "modelOptional" },
-            { "name": "search", "valueProvider": "modelOptional" },
-            { "name": "columns", "valueProvider": "modelOptional" },
-            { "name": "title", "valueProvider": "modelOptional" }
+            {
+              "name": "status",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "category",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "gender",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "employmentStatus",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "assignedWork",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "search",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "columns",
+              "valueProvider": "modelOptional"
+            },
+            {
+              "name": "title",
+              "valueProvider": "modelOptional"
+            }
           ]
         },
         "sendHeaders": true,
@@ -436,109 +460,109 @@
   ],
   "pinData": {},
   "connections": {
-    "Sidawi_Health_WH": {
+    "Sidawi_WH": {
       "main": [
         [
           {
-            "node": "Verify Identity1",
+            "node": "Verify_Identity",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Verify Identity1": {
+    "Verify_Identity": {
       "main": [
         [
           {
-            "node": "Route by Action1",
+            "node": "Route_by_Action",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Route by Action1": {
+    "Route_by_Action": {
       "main": [
         [
           {
-            "node": "WhatsApp Welcome1",
+            "node": "WA_Welcome",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "WhatsApp Goodbye1",
+            "node": "WA_Goodbye",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "WhatsApp Auto Timeout1",
+            "node": "WA_AutoTimeout",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "AI Agent Router1",
+            "node": "AI_Agent",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Agent Router1": {
+    "AI_Agent": {
       "main": [
         [
           {
-            "node": "WhatsApp AI Output1",
+            "node": "WA_AI_Output",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "fetch_employee_database1": {
+    "fetch_employee_database": {
       "ai_tool": [
         [
           {
-            "node": "AI Agent Router1",
+            "node": "AI_Agent",
             "type": "ai_tool",
             "index": 0
           }
         ]
       ]
     },
-    "generate_word_link1": {
+    "generate_word_link": {
       "ai_tool": [
         [
           {
-            "node": "AI Agent Router1",
+            "node": "AI_Agent",
             "type": "ai_tool",
             "index": 0
           }
         ]
       ]
     },
-    "Conversation Memory1": {
+    "Conversation_Memory": {
       "ai_memory": [
         [
           {
-            "node": "AI Agent Router1",
+            "node": "AI_Agent",
             "type": "ai_memory",
             "index": 0
           }
         ]
       ]
     },
-    "Google Gemini Chat Model1": {
+    "Gemini_Model": {
       "ai_languageModel": [
         [
           {
-            "node": "AI Agent Router1",
+            "node": "AI_Agent",
             "type": "ai_languageModel",
             "index": 0
           }
@@ -549,7 +573,7 @@
       "ai_tool": [
         [
           {
-            "node": "AI Agent Router1",
+            "node": "AI_Agent",
             "type": "ai_tool",
             "index": 0
           }
