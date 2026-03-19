@@ -131,7 +131,7 @@ employee-management-system/
 │   ├── table.sql                   # تعريف جدول الجلسات (مرجع)
 │   └── 📁 workflows/
 │       ├── Sidawi_AI_Health_V22.json            # ورك فلو n8n
-│       └── Sidawi_AI_Health_V22_production.json # ورك فلو محدَّث للإنتاج
+│       └── Sidawi_AI_Health_V22.json # ورك فلو محدَّث للإنتاج
 │
 ├── 📁 script/                      # سكريبتات مساعدة
 │   ├── build.ts                    # سكريبت البناء (esbuild + Vite)
@@ -518,7 +518,7 @@ script/build.ts يُشغَّل بـ tsx
 | الرابط | https://employee-management-system-ai-chat--alsid2226.replit.app |
 
 > **تنبيه مهم:** بعد كل إعادة نشر، قد يتغير الـ slug في الرابط (مثلاً `alsid2226` → `alsid2227`). يجب تحديث:
-> 1. ملف `docs/workflows/Sidawi_AI_Health_V22_production.json`
+> 1. ملف `docs/workflows/Sidawi_AI_Health_V22.json`
 > 2. ملف `README.md`
 > 3. ملف `replit.md`
 

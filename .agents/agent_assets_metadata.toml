@@ -108,3 +108,9 @@ id = "F_4-4T563Ll1PolQxWUma"
 uri = "file://docs/API_KEYS_GUIDE.md"
 type = "text"
 title = "دليل مفاتيح API وأكواد التفعيل/الإلغاء"
+
+[[outputs]]
+id = "5z2tkDWI--uJJHOB1jM4d"
+uri = "file://docs/workflows/Sidawi_AI_Health_V22.json"
+type = "unspecified"
+title = "Sidawi AI Health V22 — النسخة النهائية المحدّثة"

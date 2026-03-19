@@ -461,7 +461,7 @@
 1. افتح n8n
 2. اضغط **+** لإنشاء ورك فلو جديد
 3. من القائمة اختر **Import from file**
-4. ارفع ملف: `docs/workflows/Sidawi_AI_Health_V22_production.json`
+4. ارفع ملف: `docs/workflows/Sidawi_AI_Health_V22.json`
 5. احفظ وفعّل الورك فلو
 
 ---
