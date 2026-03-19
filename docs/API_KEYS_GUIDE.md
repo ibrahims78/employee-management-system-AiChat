@@ -169,7 +169,7 @@ POST /api/v1/bot/check-auth
         ↓
 الخادم يجد المستخدم عبر اللid المسجَّل
         ↓
-isBotActive = true + لم تمرّ 10 دقائق → يُحدِّث lastInteraction
+isBotActive = true + لم تمرّ 5 دقائق → يُحدِّث lastInteraction
         ↓
 الرد: { "action": "message" }
         ↓
@@ -198,14 +198,14 @@ isBotActive = false
 n8n يرسل رسالة وداع
 ```
 
-#### انتهاء الجلسة تلقائياً (10 دقائق)
+#### انتهاء الجلسة تلقائياً (5 دقائق)
 
 ```
-الموظف لم يرسل رسالة لمدة 10 دقائق
+الموظف لم يرسل رسالة لمدة 5 دقائق
         ↓
 الخادم يجد المستخدم (via LID)
         ↓
-isBotActive = true + مرّ أكثر من 10 دقائق منذ lastInteraction
+isBotActive = true + مرّ أكثر من 5 دقائق منذ lastInteraction
         ↓
 isBotActive = false (تلقائي)
         ↓
@@ -245,7 +245,7 @@ n8n يرسل: "انتهت الجلسة، أرسل كود التفعيل لإعا
           ↓
         نعم ──────────────────────────────
               ↓
-        هل مرّ أكثر من 10 دقائق؟
+        هل مرّ أكثر من 5 دقائق؟
               نعم → action: "auto_deactivated"
               لا  → action: "message"
           ↓
@@ -305,12 +305,12 @@ check-auth: البحث بالكود → يجد الموظف A
 
 | العقدة | دورها مع الأكواد |
 |--------|----------------|
-| `Verify Identity1` | يرسل محتوى الرسالة كـ `activationCode` لـ `check-auth` |
-| `Route by Action1` | يقرأ الـ `action` الراجع ويوجّه |
-| `WhatsApp Welcome1` | تُرسَل عند `action = "activated"` |
-| `WhatsApp Goodbye1` | تُرسَل عند `action = "deactivated"` |
-| `WhatsApp Auto Timeout1` | تُرسَل عند `action = "auto_deactivated"` |
-| `AI Agent Router1` | يُفعَّل عند `action = "message"` |
+| `Verify_Identity` | يرسل محتوى الرسالة كـ `activationCode` لـ `check-auth` |
+| `Route_by_Action` | يقرأ الـ `action` الراجع ويوجّه |
+| `WA_Welcome` | تُرسَل عند `action = "activated"` |
+| `WA_Goodbye` | تُرسَل عند `action = "deactivated"` |
+| `WA_AutoTimeout` | تُرسَل عند `action = "auto_deactivated"` |
+| `AI_Agent` | يُفعَّل عند `action = "message"` |
 
 #### في واجهة المستخدم
 
@@ -348,8 +348,8 @@ check-auth: البحث بالكود → يجد الموظف A
 | **أكواد التفعيل/الإلغاء** | تُحدَّد يدوياً لكل موظف في صفحة المستخدمين |
 | **المصادقة عبر API** | `x-api-key` header أو `?_t=` query |
 | **المصادقة عبر المتصفح** | جلسة + كوكيز |
-| **مدة جلسة المتصفح** | 10 دقائق متجددة |
-| **مدة جلسة البوت** | 10 دقائق خمول |
+| **مدة جلسة المتصفح** | **5 دقائق** متجددة |
+| **مدة جلسة البوت** | **5 دقائق** خمول |
 | **ملف التحقق** | `server/apiKeyAuth.ts` |
 | **ملف منطق البوت** | `server/routes.ts` (سطر 1314+) |
 | **جدول قاعدة البيانات** | `api_keys` (مفاتيح النظام)، `bot_users` (أكواد البوت) |

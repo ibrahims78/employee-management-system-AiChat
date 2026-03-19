@@ -4,6 +4,61 @@
 
 ---
 
+## [3.3.0] - 2026-03-19
+
+### 🔧 محسّن | Improved
+- **ورك فلو V22 — إعادة تسمية العقد**: تم توحيد أسماء جميع العقد في V22 لتتطابق مع V23 (إزالة اللاحقة `1` من أسماء الأدوات والعقد)
+  - `fetch_employee_database1` → `fetch_employee_database`
+  - `generate_word_link1` → `generate_word_link`
+  - `AI Agent Router1` → `AI_Agent`
+  - `Verify Identity1` → `Verify_Identity`
+  - `Route by Action1` → `Route_by_Action`
+  - `Conversation Memory1` → `Conversation_Memory`
+  - `Google Gemini Chat Model1` → `Gemini_Model`
+  - `WhatsApp Welcome1` → `WA_Welcome`
+  - `WhatsApp Goodbye1` → `WA_Goodbye`
+  - `WhatsApp Auto Timeout1` → `WA_AutoTimeout`
+  - `WhatsApp AI Output1` → `WA_AI_Output`
+- **System Prompt في V22**: تحديث مرجع التعبير من `$('Verify Identity1').item.json.full_name` إلى `$json.full_name` ليتطابق مع V23
+- **مراجعة شاملة**: فحص كامل للكود والمسارات وملفات TypeScript — لا أخطاء
+
+---
+
+## [3.2.0] - 2026-03-18
+
+### ✨ مضاف | Added
+
+#### ورك فلو V23 — متعدد القنوات (WhatsApp + Telegram)
+- **الملف**: `docs/workflows/Sidawi_AI_Health_V23.json`
+- **الدليل**: `docs/workflows/Sidawi_AI_Health_V23_Guide.md`
+- **دعم Telegram**: إضافة `TG_Trigger` للاستقبال من Telegram جانباً واتساب
+- **أداة جديدة** `get_employee_stats`: إحصاءات سريعة بدون نقل كل السجلات → أسرع وأوفر في الـ tokens
+- **معالجة الأخطاء**: عقد `Check_Service_Error` و`Source_Error_Router` لاكتشاف فشل الاتصال بالسيرفر
+- **إشعارات المدير (Telegram)**:
+  - `Admin_Error_Alert`: تنبيه فوري عند أي خطأ في السيرفر
+  - `Admin_Unauthorized_Alert`: تنبيه عند محاولة وصول غير مصرح
+  - `Admin_Cleanup_Report`: تقرير دوري كل ساعة عن حالة الجلسات
+- **تسجيل المحادثات**: عقدة `Log_Conversation` ترسل كل محادثة لـ `/api/v1/bot/log-conversation`
+- **تنظيف تلقائي ساعي**: `Schedule_Cleanup_Trigger` يستدعي `/api/v1/bot/cleanup-sessions` كل ساعة
+- **تطبيع الإدخال**: `Normalize_WA` و`Normalize_TG` يُوحِّدان تنسيق البيانات من القناتين
+- **ذاكرة محادثة منفصلة**: مفتاح `{from}_{source}` يضمن ذاكرة مستقلة لكل مستخدم وقناة
+- **إجمالي العقد**: 36 عقدة
+
+#### مسارات API جديدة للبوت
+- `GET /api/v1/bot/stats` — إحصاءات سريعة (إجمالي، حسب الحالة/الفئة/الجنس/نوع التوظيف)
+- `POST /api/v1/bot/log-conversation` — حفظ محادثة في جدول `audit_logs` بنوع `BOT_CONVERSATION`
+- `POST /api/v1/bot/cleanup-sessions` — تنظيف الجلسات المنتهية يدوياً
+
+#### تصدير Excel المخصص
+- `GET /api/v1/bot/generate-custom-excel` — تصدير مع فلاتر (status, category, gender, employmentStatus, assignedWork, search) وأعمدة مختارة (`columns`) وعنوان مخصص (`title`)
+
+### 🔧 محسّن | Improved
+- **مدة جلسة البوت**: تعديل مهلة الخمول من 10 إلى **5 دقائق** في كلٍّ من `check-auth` والـ cron job
+- **مدة جلسة المتصفح**: تعديل `maxAge` من 10 إلى **5 دقائق** في `server/auth.ts`
+- **حقل `autoDeactivationNotified`** في جدول `bot_users`: يمنع إرسال إشعار الإيقاف التلقائي أكثر من مرة واحدة
+
+---
+
 ## [3.0.0] - 2026-03-18
 
 ### ✨ مضاف | Added
@@ -12,7 +67,7 @@
 - **مستخدمو البوت (Bot Users)**: جدول `bot_users` منفصل لإدارة المستخدمين المصرَّح لهم باستخدام البوت
 - **تفعيل/إيقاف بالكود**: كل موظف لديه كود تفعيل وكود إيقاف خاص به
 - **نظام LID Mapping**: ربط رقم الهاتف أو WhatsApp LID تلقائياً عند أول تفعيل
-- **إيقاف تلقائي بعد الخمول**: إيقاف الجلسة تلقائياً بعد 10 دقائق من عدم النشاط
+- **إيقاف تلقائي بعد الخمول**: إيقاف الجلسة تلقائياً بعد 5 دقائق من عدم النشاط
 - **حماية من سرقة الجلسة (Session Hijacking Protection)**: رفض أي LID جديد يحاول التفعيل باستخدام كود موظف آخر يملك LID مسجل مسبقاً
 - **زر إعادة تعيين الجهاز**: يتيح للمدير مسح WhatsApp LID المرتبط بموظف (عند تغيير هاتفه)
 - **عمود حالة الجهاز**: يُظهر في جدول مستخدمي البوت هل الجهاز مسجّل أم لا
@@ -42,7 +97,7 @@
 - إعداد البناء: `npm run build` → `dist/index.cjs` + `dist/public/`
 
 ### 🔧 محسّن | Improved
-- حماية مسار التفعيل عبر LID: منع الإستبدال غير المصرَّح به
+- حماية مسار التفعيل عبر LID: منع الاستبدال غير المصرَّح به
 - مسح الـ LID من الـ PATCH endpoint باستخدام `resetLid: true`
 - توثيق شامل في README.md
 

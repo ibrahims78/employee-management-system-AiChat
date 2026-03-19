@@ -164,6 +164,7 @@
 - `IMPORT` — استيراد من Excel
 - `UPLOAD` — رفع مستند
 - `DELETE_DOCUMENT` — حذف مستند
+- `BOT_CONVERSATION` — محادثة البوت (يُسجَّل بواسطة `/api/v1/bot/log-conversation`)
 
 **قيم `entityType` الشائعة:**
 - `EMPLOYEE` — موظف
@@ -263,6 +264,7 @@ crypto.randomBytes(32).toString("hex")
 | `deactivationCode` | `text` | كود الإيقاف الخاص بالموظف |
 | `isBotActive` | `boolean` | هل البوت مفعَّل لهذا الموظف الآن؟ |
 | `lastInteraction` | `timestamp` | آخر تفاعل (لحساب الخمول) |
+| `autoDeactivationNotified` | `boolean` | هل أُرسل إشعار الإيقاف التلقائي؟ (يمنع التكرار) |
 
 **دورة حياة السجل:**
 
@@ -279,7 +281,7 @@ isBotActive = true، whatsappLid يُسجَّل تلقائياً
          ↓
 البوت يرد على رسائله
          ↓
-بعد 10 دقائق خمول أو إرسال deactivationCode
+بعد 5 دقائق خمول أو إرسال deactivationCode
          ↓
 isBotActive = false
 ```
@@ -303,7 +305,7 @@ isBotActive = false
 
 **ملاحظات:**
 - يُنشأ تلقائياً عند أول تشغيل (`createTableIfMissing: true`)
-- مدة الجلسة: 10 دقائق (`maxAge: 10 * 60 * 1000`)
+- مدة الجلسة: **5 دقائق** (`maxAge: 5 * 60 * 1000`)
 - مع `rolling: true` تُجدَّد مدة الجلسة مع كل طلب
 
 ---

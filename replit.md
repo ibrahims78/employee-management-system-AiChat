@@ -51,7 +51,7 @@ Monorepo pattern with three main directories:
 - `auditLogs` — All system operations, cascade delete on user delete
 - `settings` — Key-value system settings
 - `api_keys` — API keys (human/machine types), with expiry and active flag
-- `bot_users` — WhatsApp bot users, activation/deactivation codes, `whatsappLid`, `isBotActive`, `lastInteraction`
+- `bot_users` — WhatsApp bot users, activation/deactivation codes, `whatsappLid`, `isBotActive`, `lastInteraction`, `autoDeactivationNotified`
 - `sessions` — Express sessions stored by `connect-pg-simple`
 
 ## API Key System
@@ -103,7 +103,7 @@ When `api_keys` table is empty, login allowed without key. `GET /api/auth/setup-
 - `docs/workflows/Sidawi_AI_Health_V22.json` — WhatsApp bot (3 AI tools)
 - `docs/workflows/Sidawi_AI_Health_V23.json` — WhatsApp bot + Telegram (4 AI tools, dedicated stats tool)
 
-### V22 AI tools: fetch_employee_database1, generate_word_link1, export_excel_tool
+### V22 AI tools: fetch_employee_database, generate_word_link, export_excel_tool
 ### V23 AI tools: fetch_employee_database, get_employee_stats, generate_word_link, export_excel_tool
 
 ### AI Agent strict rules (system prompt - both V22 & V23):

@@ -46,7 +46,7 @@
 - استيراد البيانات من Excel وتصديرها بصيغ متعددة (Excel / Word)
 - سجل تدقيق كامل لجميع العمليات
 - لوحة تحكم تفاعلية بالإحصائيات والرسوم البيانية
-- **بوت واتساب ذكي** يتيح للموظفين الاستعلام عن بياناتهم عبر واتساب مباشرةً
+- **بوت واتساب وتلغرام ذكي** يتيح للموظفين الاستعلام عن بياناتهم عبر واتساب أو تلغرام مباشرةً
 
 </div>
 
@@ -74,12 +74,13 @@
 - مؤشرات أداء ديناميكية مع تأثير عداد متحرك
 - Skeleton Loaders أثناء التحميل
 
-### 🤖 بوت واتساب الذكي
-- استعلام الموظفين عن بياناتهم وملفاتهم عبر واتساب
+### 🤖 بوت واتساب وتلغرام الذكي
+- استعلام الموظفين عن بياناتهم وملفاتهم عبر واتساب أو تلغرام (V23)
 - تفعيل وإيقاف بكودات خاصة لكل موظف
-- ذاكرة محادثة مستقلة لكل مستخدم
-- إيقاف تلقائي بعد 10 دقائق من الخمول
+- ذاكرة محادثة مستقلة لكل مستخدم وكل قناة
+- إيقاف تلقائي بعد **5 دقائق** من الخمول
 - حماية من سرقة الجلسة (Session Hijacking Protection)
+- إشعارات فورية للمدير عبر تلغرام (V23)
 - لا يرد مطلقاً من خارج قاعدة البيانات
 
 ### 🔒 الأمان والإدارة
@@ -114,7 +115,7 @@
 | رفع الملفات | Multer (disk storage) |
 | الجداول | xlsx (استيراد/تصدير Excel) |
 | المستندات | docx (توليد Word) |
-| بوت واتساب | n8n + Google Gemini AI |
+| بوت واتساب/تلغرام | n8n + Google Gemini AI |
 | النشر | Replit Autoscale |
 
 ---
@@ -166,7 +167,8 @@ employee-management-system/
 │   └── routes.ts                   # تعريف مسارات API
 ├── 📁 docs/                        # التوثيق التفصيلي
 │   ├── workflows/
-│   │   └── Sidawi_AI_Health_V22.json  # ورك فلو n8n للبوت (محدَّث)
+│   │   ├── Sidawi_AI_Health_V22.json  # ورك فلو n8n — واتساب فقط
+│   │   └── Sidawi_AI_Health_V23.json  # ورك فلو n8n — واتساب + تلغرام (موصى به)
 │   ├── docker-windows-setup.md     # دليل Docker على ويندوز
 │   ├── deployment.md               # دليل النشر العام
 │   └── table.sql                   # تعريف جدول الجلسات (مرجع)
@@ -230,8 +232,12 @@ employee-management-system/
 | `POST` | `/api/v1/bot/check-auth` | التحقق من هوية المستخدم وإدارة الجلسة |
 | `POST` | `/api/v1/bot/get-all-data` | بيانات الموظف الكاملة بحسب الهاتف |
 | `GET` | `/api/v1/bot/master-query` | قاعدة البيانات الكاملة للذكاء الاصطناعي |
+| `GET` | `/api/v1/bot/stats` | إحصاءات سريعة (إجمالي، بالحالة، الفئة، الجنس) |
 | `GET` | `/api/v1/bot/generate-word-link` | توليد ملف Word + رابط تنزيل |
-| `GET` | `/api/v1/bot/generate-excel-link` | تصدير Excel + رابط تنزيل |
+| `GET` | `/api/v1/bot/generate-excel-link` | تصدير Excel كامل + رابط تنزيل |
+| `GET` | `/api/v1/bot/generate-custom-excel` | تصدير Excel مخصص بفلاتر وأعمدة محددة |
+| `POST` | `/api/v1/bot/log-conversation` | حفظ سجل المحادثة في audit_logs |
+| `POST` | `/api/v1/bot/cleanup-sessions` | تنظيف الجلسات المنتهية يدوياً |
 | `GET` | `/api/v1/files/:path` | خدمة ملفات الموظفين بحماية API key |
 
 ### مسارات أخرى
@@ -271,7 +277,7 @@ POST /api/v1/bot/check-auth
 |--------|-------|
 | غير مفعّل | المستخدم يرسل كود التفعيل → تبدأ الجلسة |
 | مفعّل | كل رسالة تُحدِّث `lastInteraction` |
-| خمول 10 دقائق | إيقاف تلقائي + إشعار |
+| خمول 5 دقائق | إيقاف تلقائي + إشعار |
 | كود الإيقاف | إيقاف يدوي فوري |
 
 ### حماية سرقة الجلسة (LID Hijacking)
@@ -292,29 +298,34 @@ POST /api/v1/bot/check-auth
 
 <div dir="rtl">
 
-### ملف الورك فلو
-الملف الجاهز للاستيراد: `docs/workflows/Sidawi_AI_Health_V22.json`
+### ملفات الورك فلو
+
+| الملف | الوصف |
+|-------|-------|
+| `docs/workflows/Sidawi_AI_Health_V22.json` | واتساب فقط — 3 أدوات AI |
+| `docs/workflows/Sidawi_AI_Health_V23.json` | واتساب + تلغرام — 4 أدوات + إشعارات المدير (موصى به) |
 
 ### متطلبات n8n
 - خادم n8n مشغَّل
 - بيانات اعتماد **Google Gemini API** مُعدَّة في n8n
 - خادم واتساب على `http://172.17.0.1:8082` (أو تحديث الروابط)
 
-### مكونات الورك فلو
+### مكونات ورك فلو V22
 
 | Node | الوظيفة |
 |------|---------|
 | `Sidawi_Health_WH` | Webhook يستقبل الرسائل من واتساب |
-| `Verify Identity1` | يستدعي `/api/v1/bot/check-auth` للتحقق |
-| `Route by Action1` | يوجّه حسب النتيجة (4 مسارات) |
-| `WhatsApp Welcome1` | رسالة ترحيب عند التفعيل |
-| `WhatsApp Goodbye1` | رسالة وداع عند الإيقاف |
-| `WhatsApp Auto Timeout1` | إشعار إيقاف تلقائي |
-| `AI Agent Router1` | وكيل الذكاء الاصطناعي (Gemini) |
-| `fetch_employee_database1` | أداة جلب قاعدة البيانات |
-| `generate_word_link1` | أداة توليد ملف Word |
+| `Verify_Identity` | يستدعي `/api/v1/bot/check-auth` للتحقق |
+| `Route_by_Action` | يوجّه حسب النتيجة (4 مسارات) |
+| `WA_Welcome` | رسالة ترحيب عند التفعيل |
+| `WA_Goodbye` | رسالة وداع عند الإيقاف |
+| `WA_AutoTimeout` | إشعار إيقاف تلقائي |
+| `AI_Agent` | وكيل الذكاء الاصطناعي (Gemini) |
+| `fetch_employee_database` | أداة جلب قاعدة البيانات |
+| `generate_word_link` | أداة توليد ملف Word |
 | `export_excel_tool` | أداة تصدير Excel |
-| `Conversation Memory1` | ذاكرة المحادثة (مستقلة لكل مستخدم) |
+| `Conversation_Memory` | ذاكرة المحادثة (مستقلة لكل مستخدم) |
+| `Gemini_Model` | نموذج Google Gemini |
 
 ### السيستم برومبت — القواعد الصارمة
 1. **الأداة إلزامية**: استدعاء `fetch_employee_database` قبل أي رد
