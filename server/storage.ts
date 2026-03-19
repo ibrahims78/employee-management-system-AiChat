@@ -39,6 +39,7 @@ export interface IStorage {
 
   // API Keys
   getApiKeys(): Promise<ApiKey[]>;
+  getApiKey(id: number): Promise<ApiKey | undefined>;
   getApiKeyByValue(keyValue: string): Promise<ApiKey | undefined>;
   createApiKey(data: InsertApiKey, keyValue: string): Promise<ApiKey>;
   updateApiKey(id: number, updates: Partial<Pick<ApiKey, "isActive" | "description" | "expiryDate" | "keyType">>): Promise<ApiKey>;
@@ -316,6 +317,11 @@ export class DatabaseStorage implements IStorage {
 
   async getApiKeys(): Promise<ApiKey[]> {
     return await db.select().from(apiKeys).orderBy(desc(apiKeys.createdAt));
+  }
+
+  async getApiKey(id: number): Promise<ApiKey | undefined> {
+    const [key] = await db.select().from(apiKeys).where(eq(apiKeys.id, id));
+    return key;
   }
 
   async getApiKeyByValue(keyValue: string): Promise<ApiKey | undefined> {

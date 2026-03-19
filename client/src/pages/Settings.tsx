@@ -42,6 +42,8 @@ function ApiKeysCard() {
   const [deleteKeyId, setDeleteKeyId] = useState<number | null>(null);
   const [form, setForm] = useState({ description: "", expiryDate: "", keyType: "human" as "human" | "machine" });
   const [copied, setCopied] = useState(false);
+  const [copyingKeyId, setCopyingKeyId] = useState<number | null>(null);
+  const [copiedKeyId, setCopiedKeyId] = useState<number | null>(null);
 
   const { data: keys = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/api-keys"],
@@ -97,6 +99,21 @@ function ApiKeysCard() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  async function revealAndCopy(id: number) {
+    setCopyingKeyId(id);
+    try {
+      const res = await apiRequest("GET", `/api/api-keys/${id}/reveal`);
+      const data = await res.json();
+      await navigator.clipboard.writeText(data.keyValue);
+      setCopiedKeyId(id);
+      setTimeout(() => setCopiedKeyId(null), 2000);
+    } catch {
+      toast({ title: "فشل نسخ المفتاح", variant: "destructive" });
+    } finally {
+      setCopyingKeyId(null);
+    }
   }
 
   const isExpired = (expiryDate: string | null) =>
@@ -194,6 +211,23 @@ function ApiKeysCard() {
                       >
                         {key.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
                         {key.isActive ? "فعّال" : "معطّل"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-primary hover:bg-primary/10"
+                        onClick={() => revealAndCopy(key.id)}
+                        disabled={copyingKeyId === key.id}
+                        data-testid={`btn-copy-key-${key.id}`}
+                        title="نسخ المفتاح الكامل"
+                      >
+                        {copyingKeyId === key.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : copiedKeyId === key.id ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
                       </Button>
                       <Button
                         variant="ghost"

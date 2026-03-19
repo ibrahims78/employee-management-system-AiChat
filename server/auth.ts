@@ -90,23 +90,6 @@ export function setupAuth(app: Express) {
     }
   })();
 
-  // Ensure n8n machine API key exists on startup
-  (async () => {
-    try {
-      const n8nKey = "3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4";
-      const existing = await storage.getApiKeyByValue(n8nKey);
-      if (!existing) {
-        await storage.createApiKey(
-          { description: "n8n", keyType: "machine", isActive: true },
-          n8nKey
-        );
-        console.log("n8n machine API key created.");
-      }
-    } catch (err) {
-      console.error("Error creating n8n API key:", err);
-    }
-  })();
-
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {

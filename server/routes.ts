@@ -1175,6 +1175,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/api-keys/:id/reveal", async (req, res) => {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ message: "الوصول مقيد للمدير فقط" });
+    }
+    try {
+      const id = Number(req.params.id);
+      const key = await storage.getApiKey(id);
+      if (!key) return res.status(404).json({ message: "المفتاح غير موجود" });
+      res.json({ keyValue: key.keyValue });
+    } catch (err) {
+      res.status(500).json({ message: "خطأ أثناء جلب المفتاح" });
+    }
+  });
+
   app.delete("/api/api-keys/:id", async (req, res) => {
     if (req.user?.role !== "admin") {
       return res.status(403).json({ message: "الوصول مقيد للمدير فقط" });
