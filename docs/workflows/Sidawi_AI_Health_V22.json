@@ -20,7 +20,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://workspace--alsid2225.replit.app/api/v1/bot/check-auth",
+        "url": "https://employee-management-system-ai-chat--alsid2225.replit.app/api/v1/bot/check-auth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -277,7 +277,7 @@
     {
       "parameters": {
         "toolDescription": "أداة الوصول الشاملة لقاعدة بيانات المديرية. تعيد كافة سجلات الموظفين، الأقسام، الإحصائيات، وروابط المستندات المباشرة. استخدمها للرد على أي استفسار معلوماتي عام أو إحصائي.",
-        "url": "https://workspace--alsid2225.replit.app/api/v1/bot/master-query?_t=3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4",
+        "url": "https://employee-management-system-ai-chat--alsid2225.replit.app/api/v1/bot/master-query?_t=3477e2bd6616a95eb2dcbb3a9e39b663fddab5a90fe7d71cdd45a7b34040fca4",
         "sendHeaders": true,
         "parametersHeaders": {
           "values": [
@@ -301,7 +301,7 @@
     {
       "parameters": {
         "toolDescription": "أداة توليد بطاقة الموظف كملف Word (docx) وإرجاع رابط تنزيل مباشر. استخدمها عندما يطلب الموظف بياناته أو ملفه الوظيفي كوثيقة Word. يجب تمرير أحد المعاملات: nationalId (الرقم الوطني) أو name (اسم الموظف). مثال: nationalId=01020148001 أو name=طارق أحمد السيد",
-        "url": "https://workspace--alsid2225.replit.app/api/v1/bot/generate-word-link",
+        "url": "https://employee-management-system-ai-chat--alsid2225.replit.app/api/v1/bot/generate-word-link",
         "sendQuery": true,
         "parametersQuery": {
           "values": [
@@ -399,7 +399,7 @@
     {
       "parameters": {
         "toolDescription": "أداة تصدير بيانات جميع الموظفين كملف Excel (xlsx) وإرجاع رابط تنزيل مباشر. استخدمها عندما يطلب المستخدم بيانات الموظفين كملف إكسل أو جدول بيانات. لا تحتاج أي معاملات إضافية.",
-        "url": "https://workspace--alsid2225.replit.app/api/v1/bot/generate-excel-link",
+        "url": "https://employee-management-system-ai-chat--alsid2225.replit.app/api/v1/bot/generate-excel-link",
         "sendHeaders": true,
         "parametersHeaders": {
           "values": [
