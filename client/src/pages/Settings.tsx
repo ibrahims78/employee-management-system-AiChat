@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Download, RefreshCw, Clock, ShieldAlert, Trash2, Database, AlertTriangle, CheckCircle2, Upload, FileSpreadsheet, Key, Plus, Eye, EyeOff, Copy, ToggleLeft, ToggleRight, Bot, UserRound, Workflow, Link2, Phone, ShieldCheck, Info, Globe, Bell, Save } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Download, RefreshCw, Clock, ShieldAlert, Trash2, Database, AlertTriangle, CheckCircle2, Upload, FileSpreadsheet, Key, Plus, Eye, EyeOff, Copy, ToggleLeft, ToggleRight, Bot, UserRound, Link2, Phone, ShieldCheck, Info, Globe, Bell, Save } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1156,19 +1155,7 @@ export default function Settings() {
           <p className="text-muted-foreground mt-1 font-medium">إدارة النسخ الاحتياطي واستيراد البيانات وتكوين النظام.</p>
         </div>
 
-        <Tabs defaultValue="general">
-          <TabsList className="mb-5 h-10 rounded-lg bg-muted p-1">
-            <TabsTrigger value="general" className="flex items-center gap-2 rounded-md text-sm" data-testid="tab-settings-general">
-              <Database className="h-4 w-4" />
-              الإعدادات العامة
-            </TabsTrigger>
-            <TabsTrigger value="n8n" className="flex items-center gap-2 rounded-md text-sm" data-testid="tab-settings-n8n">
-              <Workflow className="h-4 w-4" />
-              تكامل n8n و البوت
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="general" className="space-y-6">
+        <div className="space-y-6">
             <div className="flex justify-end">
               <Button
                 onClick={() => backupMutation.mutate()}
@@ -1314,13 +1301,7 @@ export default function Settings() {
             </CardContent>
           </Card>
         </div>
-          </TabsContent>
-
-          <TabsContent value="n8n" className="space-y-6">
-            <NotificationSettingsCard />
-            <N8nIntegrationTab />
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
 
       {/* Restore Confirmation Dialog */}
