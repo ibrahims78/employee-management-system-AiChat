@@ -26,6 +26,42 @@ function sanitizeUser(user: any) {
   return safe;
 }
 
+// إرسال رسالة واتساب مع إعادة المحاولة تلقائياً (حتى 3 مرات) عند فشل Cloudflare/Gateway
+async function sendWhatsAppWithRetry(
+  webhookUrl: string,
+  number: string,
+  message: string,
+  maxRetries = 3,
+  delayMs = 2000
+): Promise<{ success: boolean; error?: string }> {
+  let lastError = "";
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number, message }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (res.ok) return { success: true };
+      const errText = await res.text();
+      const isHtml = errText.trim().startsWith("<");
+      lastError = isHtml
+        ? `بوابة واتساب غير متاحة (HTTP ${res.status})`
+        : errText || `HTTP ${res.status}`;
+      // إعادة المحاولة فقط عند أخطاء السيرفر (5xx)
+      if (res.status < 500) break;
+    } catch (e: any) {
+      lastError = e.name === "AbortError" ? "انتهت مهلة الاتصال بالبوابة" : e.message;
+    }
+    if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return { success: false, error: `فشل الإرسال بعد ${maxRetries} محاولات — ${lastError}. تحقق من استقرار الاتصال بالسيرفر.` };
+}
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 login requests per windowMs
@@ -1476,26 +1512,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const n8nWaWebhook  = await storage.getSetting("n8n_wa_send_webhook");
 
       if (adminPhone && n8nWaWebhook) {
-        try {
-          const number = String(adminPhone).replace(/\D/g, "");
-          const waRes = await fetch(String(n8nWaWebhook), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ number, message }),
-          });
-          if (waRes.ok) {
-            results.push({ channel: "whatsapp", success: true });
-          } else {
-            const errText = await waRes.text();
-            const isHtml = errText.trim().startsWith("<");
-            const errMsg = isHtml
-              ? `فشل الإرسال — بوابة واتساب غير متاحة (HTTP ${waRes.status}). تحقق من تشغيل خدمة واتساب على السيرفر.`
-              : errText || `HTTP ${waRes.status}`;
-            results.push({ channel: "whatsapp", success: false, error: errMsg });
-          }
-        } catch (e: any) {
-          results.push({ channel: "whatsapp", success: false, error: `تعذّر الاتصال ببوابة واتساب: ${e.message}` });
-        }
+        const waResult = await sendWhatsAppWithRetry(String(n8nWaWebhook), String(adminPhone).replace(/\D/g, ""), message);
+        results.push({ channel: "whatsapp", ...waResult });
       }
 
       // ── إرسال عبر تيليغرام ────────────────────────────────────────────────
@@ -1567,26 +1585,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (!n8nWaWebhook) {
           results.push({ channel: "whatsapp", success: false, error: "رابط n8n لإرسال واتساب غير مُهيّأ — راجع إعدادات الإشعارات" });
         } else {
-          try {
-            const number = botUser.phoneNumber.replace(/\D/g, "");
-            const waRes = await fetch(String(n8nWaWebhook), {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ number, message }),
-            });
-            if (waRes.ok) {
-              results.push({ channel: "whatsapp", success: true });
-            } else {
-              const errText = await waRes.text();
-              const isHtml = errText.trim().startsWith("<");
-              const errMsg = isHtml
-                ? `فشل الإرسال — بوابة واتساب غير متاحة (HTTP ${waRes.status}). تحقق من تشغيل خدمة واتساب على السيرفر.`
-                : errText || `HTTP ${waRes.status}`;
-              results.push({ channel: "whatsapp", success: false, error: errMsg });
-            }
-          } catch (e: any) {
-            results.push({ channel: "whatsapp", success: false, error: `تعذّر الاتصال ببوابة واتساب: ${e.message}` });
-          }
+          const number = botUser.phoneNumber.replace(/\D/g, "");
+          const waResult = await sendWhatsAppWithRetry(String(n8nWaWebhook), number, message);
+          results.push({ channel: "whatsapp", ...waResult });
         }
       }
 
