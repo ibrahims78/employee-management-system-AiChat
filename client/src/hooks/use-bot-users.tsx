@@ -55,12 +55,33 @@ export function useBotUsers() {
       }
       return (await res.json()) as BotUser;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bot-users"] });
-      toast({ title: "تمت العملية بنجاح", description: "تم تحديث بيانات مستخدم البوت" });
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches so they don't overwrite optimistic update
+      await queryClient.cancelQueries({ queryKey: ["/api/bot-users"] });
+
+      // Snapshot previous value for rollback
+      const previous = queryClient.getQueryData<BotUser[]>(["/api/bot-users"]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData<BotUser[]>(["/api/bot-users"], (old = []) =>
+        old.map((bu) => (bu.id === id ? { ...bu, ...data } : bu)),
+      );
+
+      return { previous };
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _vars, ctx) => {
+      // Rollback on error
+      if (ctx?.previous) {
+        queryClient.setQueryData(["/api/bot-users"], ctx.previous);
+      }
       toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    },
+    onSuccess: (_result, { data }) => {
+      // Only show toast for non-toggle updates (i.e. form edits)
+      if (!("isBotActive" in data) && !("resetLid" in data)) {
+        toast({ title: "تمت العملية بنجاح", description: "تم تحديث بيانات مستخدم البوت" });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/bot-users"] });
     },
   });
 
