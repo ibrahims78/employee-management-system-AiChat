@@ -2,7 +2,7 @@
 
 ## Overview
 
-Full-stack Employee HR Management System designed for a Health Engineering Office (القسم الهندسي الصحي). Manages employee records including personal info, professional details, employment history, document uploads, and includes a WhatsApp AI bot integration via n8n. The application has a complete Arabic RTL interface.
+Full-stack Employee HR Management System designed for a Health Engineering Office (القسم الهندسي الصحي). Manages employee records including personal info, professional details, employment history, document uploads, and includes a multi-channel AI bot (WhatsApp + Telegram) integration via n8n. The application has a complete Arabic RTL interface.
 
 The app runs on port 5000. Default admin credentials: `admin` / `123456`.
 
@@ -51,7 +51,7 @@ Monorepo pattern with three main directories:
 - `auditLogs` — All system operations, cascade delete on user delete
 - `settings` — Key-value system settings
 - `api_keys` — API keys (human/machine types), with expiry and active flag
-- `bot_users` — WhatsApp bot users, activation/deactivation codes, `whatsappLid`, `isBotActive`, `lastInteraction`, `autoDeactivationNotified`
+- `bot_users` — Multi-channel bot users (WA + TG), activation/deactivation codes, `whatsappLid`, `telegramChatId`, `isBotActive`, `lastInteraction`, `autoDeactivationNotified`
 - `sessions` — Express sessions stored by `connect-pg-simple`
 
 ## API Key System
@@ -67,23 +67,30 @@ When `api_keys` table is empty, login allowed without key. `GET /api/auth/setup-
 - Full key shown once at creation, masked in all list views
 - Keys stored as plain hex in `key_value` (64 chars via `crypto.randomBytes(32)`)
 
-## WhatsApp Bot System
+## Multi-Channel Bot System (WhatsApp + Telegram)
 
 ### Flow:
-1. n8n webhook receives WhatsApp message
-2. Calls `POST /api/v1/bot/check-auth` with `phoneNumber` (LID or phone) and `activationCode` (message content)
-3. Returns `action`: `activated` | `deactivated` | `auto_deactivated` | `message` | `unauthorized`
-4. n8n routes to appropriate handler (welcome message, goodbye, timeout, or AI agent)
+1. n8n webhook/trigger receives message from WhatsApp or Telegram
+2. Normalizes data into unified format: `{ from, content, source }` where `source = "whatsapp" | "telegram"`
+3. Calls `POST /api/v1/bot/check-auth` with `{ phoneNumber, activationCode, source }` — **source field is critical for Telegram**
+4. Server uses `source` to choose correct lookup: WA uses LID/phone match; Telegram uses `telegramChatId` match
+5. Returns `action`: `activated` | `deactivated` | `auto_deactivated` | `message` | `unauthorized`
+6. n8n routes to appropriate handler, sends response back via same channel
 
 ### Session management:
-- Sessions identified by WhatsApp LID (stored in `whatsappLid` field)
+- WhatsApp sessions identified by LID (stored in `whatsappLid` field)
+- Telegram sessions identified by `chat.id` (stored in `telegramChatId` field)
 - Auto-deactivate after 5 min inactivity (`AUTO_TIMEOUT_MS = 5 * 60 * 1000`)
 - Background cron job every 60s deactivates timed-out sessions
+- n8n Memory key: `{from}_{source}` — keeps WA and TG conversations separate per user
 
-### Session Hijacking Protection (added March 2026):
-- If a `@lid` format request tries to activate using an employee's code BUT that employee already has a different LID registered → **rejected with `unauthorized`**
-- Prevents one person from stealing another's active bot session
-- Admin can reset LID via `PATCH /api/bot-users/:id` with `{ resetLid: true }`
+### Session Hijacking Protection:
+- WhatsApp: If request has different LID than stored `whatsappLid` → `unauthorized`
+- Telegram: If request has different `chat.id` than stored `telegramChatId` → `unauthorized`
+- Admin can reset each channel independently:
+  - `PATCH /api/bot-users/:id` with `{ resetWhatsappLid: true }` — resets WA device
+  - `PATCH /api/bot-users/:id` with `{ resetTelegramId: true }` — resets TG account
+- UI: Users page shows WA badge 🟣 and TG badge 🔵 separately, each with its own reset button
 
 ### Bot API endpoints (all require `x-api-key` machine key):
 - `POST /api/v1/bot/check-auth` — Auth + session management
@@ -145,7 +152,8 @@ Settings keys controlling notification delivery:
 - Download updated V23 workflow from Settings → Notification tab → "ورك فلو n8n المُحدَّث (V23)"
 
 ### User isolation:
-- Each user gets independent conversation memory via `sessionKey = phone`
+- Each user gets independent conversation memory via `sessionKey = {from}_{source}` (e.g. `966501234567_whatsapp`, `123456789_telegram`)
+- Separate memory even if same person uses both WA and TG
 - n8n executes each webhook as a completely independent execution
 - Backend is async — handles concurrent users with no interference
 
