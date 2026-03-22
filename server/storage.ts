@@ -51,6 +51,7 @@ export interface IStorage {
   getBotUser(id: number): Promise<BotUser | undefined>;
   getBotUserByPhone(phoneNumber: string): Promise<BotUser | undefined>;
   getBotUserByLid(lid: string): Promise<BotUser | undefined>;
+  getBotUserByTelegramChatId(chatId: string): Promise<BotUser | undefined>;
   createBotUser(data: InsertBotUser): Promise<BotUser>;
   updateBotUser(id: number, updates: Partial<BotUser>): Promise<BotUser>;
   deleteBotUser(id: number): Promise<void>;
@@ -369,6 +370,11 @@ export class DatabaseStorage implements IStorage {
 
   async getBotUserByLid(lid: string): Promise<BotUser | undefined> {
     const [user] = await db.select().from(botUsers).where(eq(botUsers.whatsappLid, lid));
+    return user;
+  }
+
+  async getBotUserByTelegramChatId(chatId: string): Promise<BotUser | undefined> {
+    const [user] = await db.select().from(botUsers).where(eq(botUsers.telegramChatId, chatId));
     return user;
   }
 

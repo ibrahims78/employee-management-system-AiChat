@@ -959,14 +959,23 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell data-testid={`device-${bu.id}`}>
-                        {bu.whatsappLid ? (
-                          <Badge variant="outline" className="gap-1 text-[10px] border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-400">
-                            <SmartphoneNfc className="h-3 w-3" />
-                            مسجّل
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/50">غير مسجّل</span>
-                        )}
+                        <div className="flex flex-col gap-0.5">
+                          {bu.whatsappLid ? (
+                            <Badge variant="outline" className="gap-1 text-[10px] border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-400">
+                              <SmartphoneNfc className="h-3 w-3" />
+                              WA
+                            </Badge>
+                          ) : null}
+                          {bu.telegramChatId ? (
+                            <Badge variant="outline" className="gap-1 text-[10px] border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400">
+                              <SmartphoneNfc className="h-3 w-3" />
+                              TG
+                            </Badge>
+                          ) : null}
+                          {!bu.whatsappLid && !bu.telegramChatId && (
+                            <span className="text-xs text-muted-foreground/50">غير مسجّل</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {bu.lastInteraction ? (
@@ -1019,14 +1028,14 @@ export default function UsersPage() {
                                   variant="ghost"
                                   size="icon"
                                   data-testid={`button-reset-lid-${bu.id}`}
-                                  title="إعادة تعيين الجهاز (مسح LID المسجل)"
+                                  title="إعادة تعيين جهاز واتساب (مسح LID المسجل)"
                                 >
                                   <SmartphoneNfc className="h-4 w-4 text-purple-600" />
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>إعادة تعيين الجهاز</AlertDialogTitle>
+                                  <AlertDialogTitle>إعادة تعيين جهاز واتساب</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     سيتم مسح معرّف الجهاز (WhatsApp LID) المرتبط بـ <strong>{bu.fullName}</strong>. بعد ذلك يمكن للمستخدم التفعيل من جهاز جديد باستخدام كود التفعيل. هل أنت متأكد؟
                                   </AlertDialogDescription>
@@ -1036,6 +1045,37 @@ export default function UsersPage() {
                                   <AlertDialogAction
                                     onClick={() => updateBotUser({ id: bu.id, data: { resetLid: true } as any })}
                                     className="bg-purple-600 hover:bg-purple-700"
+                                  >
+                                    إعادة تعيين
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                          {bu.telegramChatId && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  data-testid={`button-reset-tg-${bu.id}`}
+                                  title="إعادة تعيين حساب تيليغرام"
+                                >
+                                  <SmartphoneNfc className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>إعادة تعيين حساب تيليغرام</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    سيتم مسح معرّف تيليغرام المرتبط بـ <strong>{bu.fullName}</strong>. بعد ذلك يمكن للمستخدم التفعيل من حساب تيليغرام جديد باستخدام كود التفعيل. هل أنت متأكد؟
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => updateBotUser({ id: bu.id, data: { resetTelegramId: true } as any })}
+                                    className="bg-blue-600 hover:bg-blue-700"
                                   >
                                     إعادة تعيين
                                   </AlertDialogAction>

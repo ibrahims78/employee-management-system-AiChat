@@ -139,6 +139,7 @@ export const botUsers = pgTable("bot_users", {
   fullName: text("full_name").notNull(),
   phoneNumber: text("phone_number").notNull().unique(),
   whatsappLid: text("whatsapp_lid"),
+  telegramChatId: text("telegram_chat_id"),
   activationCode: text("activation_code").notNull(),
   deactivationCode: text("deactivation_code").notNull(),
   isBotActive: boolean("is_bot_active").notNull().default(false),

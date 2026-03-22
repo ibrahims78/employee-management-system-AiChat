@@ -152,6 +152,10 @@
             {
               "name": "activationCode",
               "value": "={{ $json.content }}"
+            },
+            {
+              "name": "source",
+              "value": "={{ $json.source }}"
             }
           ]
         },
@@ -1389,6 +1393,11 @@
         [
           {
             "node": "TG_Welcome",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Admin_Activation_Alert",
             "type": "main",
             "index": 0
           }

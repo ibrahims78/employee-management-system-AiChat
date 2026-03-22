@@ -1458,7 +1458,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/bot-users/:id", async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const { fullName, phoneNumber, activationCode, deactivationCode, isBotActive, resetLid } = req.body;
+      const { fullName, phoneNumber, activationCode, deactivationCode, isBotActive, resetLid, resetTelegramId } = req.body;
       const updates: any = {};
       if (fullName !== undefined) updates.fullName = String(fullName).trim();
       if (phoneNumber !== undefined) updates.phoneNumber = normalizePhone(String(phoneNumber));
@@ -1467,6 +1467,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (isBotActive !== undefined) updates.isBotActive = Boolean(isBotActive);
       // إعادة تعيين الجهاز: مسح LID المسجل حتى يتمكن المستخدم من التفعيل من جهاز جديد
       if (resetLid === true) updates.whatsappLid = null;
+      // إعادة تعيين تيليغرام: مسح chat_id المسجل حتى يتمكن المستخدم من التفعيل من حساب جديد
+      if (resetTelegramId === true) updates.telegramChatId = null;
       const old = await storage.getBotUser(id);
       const updated = await storage.updateBotUser(id, updates);
       if (req.user) {
@@ -1680,7 +1682,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   //   "unauthorized"    – phone/code not recognised                      → silence
   app.post("/api/v1/bot/check-auth", authenticateMachineAPI, async (req, res) => {
     try {
-      const { phoneNumber, activationCode } = req.body;
+      const { phoneNumber, activationCode, source } = req.body;
+      const isTelegramSource = source === "telegram";
 
       if (!phoneNumber) {
         return res.status(400).json({ authorized: false, action: "unauthorized", message: "phoneNumber مطلوب" });
@@ -1696,8 +1699,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return Date.now() - new Date(lastInteraction).getTime() > AUTO_TIMEOUT_MS;
       };
 
-      // ── 1. التعرف التلقائي عبر LID ──────────────────────────────────────────
-      let botUser = await storage.getBotUserByLid(incomingLid);
+      // ── 1. التعرف التلقائي عبر LID أو Telegram Chat ID ─────────────────────
+      let botUser = isTelegramSource
+        ? await storage.getBotUserByTelegramChatId(incomingLid)
+        : await storage.getBotUserByLid(incomingLid);
 
       if (botUser) {
         // الأولوية الأعلى: كود الإيقاف → إيقاف فوري
@@ -1804,7 +1809,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // بحث بكود التفعيل
       const activationMatch = allBotUsers.find(u => u.activationCode === incomingCode);
       if (activationMatch) {
-        if (!isLidFormat) {
+        if (isTelegramSource) {
+          // مصدر تيليغرام → chat.id ليس رقم هاتف، نقبل الكود مباشرةً
+          // حماية من سرقة الجلسة: إذا كان المستخدم لديه telegramChatId مختلف → رفض
+          if (activationMatch.telegramChatId && activationMatch.telegramChatId !== incomingLid) {
+            console.log(`[check-auth] محاولة سرقة جلسة تيليغرام بكود التفعيل: incoming=${incomingLid}, registered=${activationMatch.telegramChatId}`);
+            return res.json({ authorized: false, action: "unauthorized" });
+          }
+          console.log(`[check-auth] تفعيل عبر تيليغرام (${incomingLid}) → مقبول بالكود`);
+        } else if (!isLidFormat) {
           // رقم هاتف عادي → نتحقق من تطابقه مع الرقم المسجل
           if (!phonesMatch(activationMatch.phoneNumber, incomingLid)) {
             console.log(`[check-auth] كود تفعيل صحيح لكن رقم الهاتف غير مطابق: incoming=${incomingLid}, registered=${activationMatch.phoneNumber}`);
@@ -1820,7 +1833,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           console.log(`[check-auth] تفعيل عبر LID (${incomingLid}) → لا مقارنة هاتفية ممكنة، مقبول بالكود`);
         }
         await storage.updateBotUser(activationMatch.id, {
-          whatsappLid: incomingLid,
+          ...(isTelegramSource
+            ? { telegramChatId: incomingLid }
+            : { whatsappLid: incomingLid }),
           isBotActive: true,
           lastInteraction: new Date(),
           autoDeactivationNotified: false,
@@ -1838,7 +1853,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // بحث بكود الإيقاف
       const deactivationMatch = allBotUsers.find(u => u.deactivationCode === incomingCode);
       if (deactivationMatch) {
-        if (!isLidFormat) {
+        if (isTelegramSource) {
+          // مصدر تيليغرام → نتحقق من chat.id فقط
+          if (deactivationMatch.telegramChatId && deactivationMatch.telegramChatId !== incomingLid) {
+            console.log(`[check-auth] محاولة سرقة جلسة تيليغرام بكود الإيقاف: incoming=${incomingLid}, registered=${deactivationMatch.telegramChatId}`);
+            return res.json({ authorized: false, action: "unauthorized" });
+          }
+          console.log(`[check-auth] إيقاف عبر تيليغرام (${incomingLid}) → مقبول بالكود`);
+        } else if (!isLidFormat) {
           // رقم هاتف عادي → نتحقق من تطابقه مع الرقم المسجل
           if (!phonesMatch(deactivationMatch.phoneNumber, incomingLid)) {
             console.log(`[check-auth] كود إيقاف صحيح لكن رقم الهاتف غير مطابق: incoming=${incomingLid}, registered=${deactivationMatch.phoneNumber}`);
