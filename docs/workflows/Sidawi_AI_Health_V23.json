@@ -1023,7 +1023,8 @@
         "chatId": "={{ $('Restore_Context').item.json.from }}",
         "text": "={{ $json.output }}",
         "additionalFields": {
-          "appendAttribution": false
+          "appendAttribution": false,
+          "parse_mode": "Markdown"
         }
       },
       "id": "bb000001-0001-0001-0001-000000000033",
