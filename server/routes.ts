@@ -1953,7 +1953,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const downloadUrl = apiToken
           ? `${baseUrl}/api/v1/files/${encodedPath}?t=${apiToken}`
           : `${baseUrl}${docPath}`;
-        return { name: fileName, url: downloadUrl, path: docPath };
+        const displayName = fileName.replace(/_/g, " ");
+        return { name: displayName, url: downloadUrl };
       });
 
       // Update bot user last interaction
@@ -2054,11 +2055,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const fileUrl = botApiToken
           ? `${baseUrl}/api/v1/files/${encodedCleanPath}?t=${botApiToken}`
           : `${baseUrl}${docPath}`;
+        const displayName = fileName.replace(/_/g, " ");
         return {
-          name: fileName,
+          name: displayName,
           type: typeMap[ext] ?? ext.toUpperCase(),
           url: fileUrl,
-          path: docPath,
         };
       });
 
@@ -2163,9 +2164,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             ? `${baseUrl}/api/v1/files/${encodedPath}?t=${apiKeyToken}`
             : `${baseUrl}${docPath}`;
           return {
-            file_name: fileName,
+            file_name: fileName.replace(/_/g, " "),
             file_type: typeMap[ext] ?? ext.toUpperCase(),
-            file_path: docPath,
             direct_url: directUrl,
           };
         });
