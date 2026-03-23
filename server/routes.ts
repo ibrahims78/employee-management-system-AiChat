@@ -2957,6 +2957,267 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── POST /api/v1/bot/telegram-send-document ───────────────────────────────
+  // يُولّد ملف Excel أو Word أو يُحضر مستنداً موجوداً ويُرسله مباشرة
+  // إلى محادثة تيليغرام عبر sendDocument API.
+  // Body (JSON):
+  //   chatId        – معرّف محادثة تيليغرام (مطلوب)
+  //   type          – "excel" | "word" | "document" (مطلوب)
+  //   nationalId    – الرقم الوطني للموظف (لـ word)
+  //   employeeId    – رقم الموظف في قاعدة البيانات (لـ word)
+  //   name          – اسم الموظف (لـ word)
+  //   documentPath  – مسار المستند الموجود (لـ document)
+  //   caption       – نص اختياري يُرسل مع الملف
+  //   status / category / gender / employmentStatus / assignedWork / search
+  //                 – فلاتر اختيارية لملف Excel المخصص
+  app.post("/api/v1/bot/telegram-send-document", authenticateMachineAPI, async (req, res) => {
+    try {
+      const {
+        chatId,
+        type,
+        nationalId,
+        employeeId,
+        name,
+        documentPath,
+        caption,
+        status,
+        category,
+        gender,
+        employmentStatus,
+        assignedWork,
+        search,
+      } = req.body;
+
+      if (!chatId) {
+        return res.status(400).json({ success: false, message: "chatId مطلوب" });
+      }
+      if (!type) {
+        return res.status(400).json({ success: false, message: "type مطلوب (excel | word | document)" });
+      }
+
+      const botToken = await storage.getSetting("telegram_bot_token");
+      if (!botToken) {
+        return res.status(500).json({ success: false, message: "إعدادات بوت تيليغرام غير مُهيّأة (telegram_bot_token)" });
+      }
+
+      const fmtDate = (d: Date | string | null | undefined) => {
+        if (!d) return "";
+        const dt = new Date(d as string);
+        if (dt.getFullYear() <= 1970) return "";
+        return format(dt, "dd/MM/yyyy");
+      };
+
+      let fileBuffer: Buffer;
+      let fileName: string;
+      let mimeType: string;
+
+      // ── أ. ملف Excel ──────────────────────────────────────────────────────
+      if (type === "excel") {
+        let employees = await storage.getEmployees(false, 1, 100000, true, true);
+
+        if (status)           employees = employees.filter((e) => e.currentStatus === status);
+        if (category)         employees = employees.filter((e) => e.category === category);
+        if (gender)           employees = employees.filter((e) => e.gender === gender);
+        if (employmentStatus) employees = employees.filter((e) => e.employmentStatus === employmentStatus);
+        if (assignedWork)     employees = employees.filter((e) => e.assignedWork === assignedWork);
+        if (search) {
+          const q = String(search).toLowerCase();
+          employees = employees.filter(
+            (e) =>
+              e.fullName.toLowerCase().includes(q) ||
+              (e.nationalId || "").toLowerCase().includes(q) ||
+              (e.mobile || "").toLowerCase().includes(q)
+          );
+        }
+
+        if (employees.length === 0) {
+          return res.json({ success: false, message: "لا يوجد موظفون يطابقون معايير الفلترة المحددة." });
+        }
+
+        const rows = employees.map((emp) => ({
+          "الاسم والكنية": emp.fullName,
+          "اسم الأب": emp.fatherName,
+          "اسم الأم": emp.motherName,
+          "مكان الولادة": emp.placeOfBirth,
+          "تاريخ الولادة": fmtDate(emp.dateOfBirth),
+          "محل ورقم القيد": emp.registryPlaceAndNumber,
+          "الرقم الوطني": emp.nationalId,
+          "رقم شام كاش": emp.shamCashNumber || "",
+          "الجنس": emp.gender,
+          "الشهادة": emp.certificate || "",
+          "نوع الشهادة": emp.certificateType || "",
+          "الاختصاص": emp.specialization || "",
+          "الصفة الوظيفية": emp.jobTitle,
+          "الفئة": emp.category,
+          "الوضع الوظيفي": emp.employmentStatus,
+          "رقم قرار التعيين": emp.appointmentDecisionNumber,
+          "تاريخ قرار التعيين": fmtDate(emp.appointmentDecisionDate),
+          "أول مباشرة بالدولة": fmtDate(emp.firstStateStart),
+          "أول مباشرة بالمديرية": fmtDate(emp.firstDirectorateStart),
+          "أول مباشرة بالقسم": fmtDate(emp.firstDepartmentStart),
+          "وضع العامل الحالي": emp.currentStatus,
+          "العمل المكلف به": emp.assignedWork,
+          "رقم الجوال": emp.mobile,
+          "العنوان": emp.address,
+          "ملاحظات": emp.notes || "",
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "الموظفون");
+        fileBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" }) as Buffer;
+        fileName = `تقرير_الموظفين_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
+        mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+      // ── ب. بطاقة موظف Word ───────────────────────────────────────────────
+      } else if (type === "word") {
+        let employee: Employee | undefined;
+        const allEmps = await storage.getEmployees(false, 1, 100000, true, true);
+
+        if (employeeId) {
+          const id = parseInt(String(employeeId));
+          if (!isNaN(id)) employee = await storage.getEmployee(id);
+        } else if (nationalId) {
+          employee = allEmps.find((e) => e.nationalId === String(nationalId).trim());
+        } else if (name) {
+          const rawName = String(name).trim();
+          employee = allEmps.find((e) => e.fullName === rawName)
+                  || allEmps.find((e) => e.fullName.includes(rawName) || rawName.includes(e.fullName));
+        }
+
+        if (!employee) {
+          return res.status(404).json({
+            success: false,
+            message: "الموظف غير موجود — يرجى تمرير nationalId أو employeeId أو name",
+          });
+        }
+
+        const fieldParagraph = (label: string, value: string) =>
+          new Paragraph({
+            children: [
+              new TextRun({ text: `${label}: `, bold: true, rightToLeft: true }),
+              new TextRun({ text: value || "", rightToLeft: true }),
+            ],
+            alignment: AlignmentType.RIGHT,
+            spacing: { before: 100 },
+          });
+
+        const doc = new DocxDocument({
+          sections: [{
+            properties: {},
+            children: [
+              new Paragraph({ text: "بطاقة موظف التفصيلية", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+              new Paragraph({ text: "" }),
+              new Paragraph({ children: [new TextRun({ text: "البيانات الشخصية:", bold: true, size: 32, rightToLeft: true, color: "2b6cb0" })], alignment: AlignmentType.RIGHT }),
+              fieldParagraph("الاسم والكنية", employee.fullName),
+              fieldParagraph("اسم الأب", employee.fatherName),
+              fieldParagraph("اسم الأم", employee.motherName),
+              fieldParagraph("مكان الولادة", employee.placeOfBirth),
+              fieldParagraph("تاريخ الولادة", fmtDate(employee.dateOfBirth)),
+              fieldParagraph("محل ورقم القيد", employee.registryPlaceAndNumber),
+              fieldParagraph("الرقم الوطني", employee.nationalId),
+              fieldParagraph("رقم شام كاش", employee.shamCashNumber || "غير متوفر"),
+              fieldParagraph("الجنس", employee.gender),
+              fieldParagraph("رقم الجوال", employee.mobile),
+              fieldParagraph("العنوان", employee.address),
+              new Paragraph({ text: "" }),
+              new Paragraph({ children: [new TextRun({ text: "البيانات الوظيفية:", bold: true, size: 32, rightToLeft: true, color: "2b6cb0" })], alignment: AlignmentType.RIGHT }),
+              fieldParagraph("الشهادة", employee.certificate || ""),
+              fieldParagraph("نوع الشهادة", employee.certificateType || ""),
+              fieldParagraph("الاختصاص", employee.specialization || ""),
+              fieldParagraph("الصفة الوظيفية", employee.jobTitle),
+              fieldParagraph("الفئة", employee.category),
+              fieldParagraph("الوضع الوظيفي", employee.employmentStatus),
+              fieldParagraph("رقم قرار التعيين", employee.appointmentDecisionNumber),
+              fieldParagraph("تاريخ قرار التعيين", fmtDate(employee.appointmentDecisionDate)),
+              fieldParagraph("أول مباشرة بالدولة", fmtDate(employee.firstStateStart)),
+              fieldParagraph("أول مباشرة بالمديرية", fmtDate(employee.firstDirectorateStart)),
+              fieldParagraph("أول مباشرة بالقسم", fmtDate(employee.firstDepartmentStart)),
+              fieldParagraph("وضع العامل الحالي", employee.currentStatus),
+              fieldParagraph("العمل المكلف به", employee.assignedWork),
+              fieldParagraph("ملاحظات", employee.notes || "لا يوجد"),
+            ],
+          }],
+        });
+
+        fileBuffer = await Packer.toBuffer(doc) as Buffer;
+        fileName = `بطاقة_${employee.fullName}.docx`;
+        mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+      // ── ج. مستند موجود من مسار محدد ─────────────────────────────────────
+      } else if (type === "document") {
+        if (!documentPath) {
+          return res.status(400).json({ success: false, message: "documentPath مطلوب عند type=document" });
+        }
+
+        const cleanPath = String(documentPath).replace(/^\/+/, "");
+        const fullPath = path.resolve(process.cwd(), "storage", cleanPath);
+        const absoluteUploadsDir = path.resolve(process.cwd(), "storage", "uploads");
+
+        if (!fullPath.startsWith(absoluteUploadsDir)) {
+          return res.status(403).json({ success: false, message: "مسار المستند غير مسموح به" });
+        }
+
+        const stat = await fs.stat(fullPath).catch(() => null);
+        if (!stat) {
+          return res.status(404).json({ success: false, message: "الملف غير موجود على الخادم" });
+        }
+
+        fileBuffer = Buffer.from(await fs.readFile(fullPath));
+        fileName = path.basename(fullPath);
+        const extMime: Record<string, string> = {
+          ".pdf": "application/pdf",
+          ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ".doc": "application/msword",
+          ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          ".xls": "application/vnd.ms-excel",
+          ".jpg": "image/jpeg",
+          ".jpeg": "image/jpeg",
+          ".png": "image/png",
+        };
+        mimeType = extMime[path.extname(fullPath).toLowerCase()] || "application/octet-stream";
+
+      } else {
+        return res.status(400).json({ success: false, message: "type غير صالح. القيم المقبولة: excel | word | document" });
+      }
+
+      // ── إرسال الملف إلى تيليغرام عبر sendDocument ───────────────────────
+      const tgUrl = `https://api.telegram.org/bot${String(botToken)}/sendDocument`;
+
+      const formData = new FormData();
+      formData.append("chat_id", String(chatId));
+      formData.append("document", new Blob([fileBuffer], { type: mimeType }), fileName);
+      if (caption) formData.append("caption", String(caption));
+
+      const tgRes = await fetch(tgUrl, { method: "POST", body: formData });
+      const tgBody = await tgRes.json() as any;
+
+      if (!tgRes.ok || !tgBody.ok) {
+        console.error("[telegram-send-document] Telegram API error:", tgBody);
+        return res.status(502).json({
+          success: false,
+          message: `فشل إرسال الملف عبر تيليغرام: ${tgBody?.description || `HTTP ${tgRes.status}`}`,
+          telegram_error: tgBody,
+        });
+      }
+
+      console.log(`[telegram-send-document] ✅ Sent ${type} file "${fileName}" to chatId ${chatId}`);
+
+      return res.json({
+        success: true,
+        message: `تم إرسال الملف "${fileName}" بنجاح إلى تيليغرام`,
+        fileName,
+        type,
+        chatId,
+        telegram_message_id: tgBody.result?.message_id,
+      });
+
+    } catch (err: any) {
+      console.error("[telegram-send-document] Error:", err);
+      res.status(500).json({ success: false, message: `خطأ داخلي في الخادم: ${err.message}` });
+    }
+  });
+
   // ─── Background Cron: Deactivate inactive bot sessions every 60 seconds ───
   const INACTIVITY_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
   setInterval(async () => {
