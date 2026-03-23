@@ -265,7 +265,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(401).send("Unauthorized");
   }, express.static(uploadsDir));
 
-  // Public file-serving route for the bot: /api/v1/files/uploads/...?_t=API_KEY
+  // Public file-serving route for the bot: /api/v1/files/uploads/...?t=API_KEY
   // Allows WhatsApp users to open document links without a browser session.
   app.get("/api/v1/files/*filePath", authenticateAPI, async (req, res) => {
     try {
@@ -1944,14 +1944,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // Build download URLs
       const baseUrl = getBaseUrl(req);
-      const apiToken = (req.query._t as string) || (req.headers["x-api-key"] as string) || "";
+      const apiToken = (req.query.t as string) || (req.query._t as string) || (req.headers["x-api-key"] as string) || "";
 
       const documents = docPaths.map((docPath) => {
         const fileName = path.basename(docPath);
         const cleanPath = docPath.startsWith("/") ? docPath.substring(1) : docPath;
         const encodedPath = cleanPath.split("/").map((s) => encodeURIComponent(s).replace(/_/g, "%5F")).join("/");
         const downloadUrl = apiToken
-          ? `${baseUrl}/api/v1/files/${encodedPath}?_t=${apiToken}`
+          ? `${baseUrl}/api/v1/files/${encodedPath}?t=${apiToken}`
           : `${baseUrl}${docPath}`;
         return { name: fileName, url: downloadUrl, path: docPath };
       });
@@ -2034,7 +2034,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const protocol = req.protocol;
       const host = req.get("host") || "localhost";
       const baseUrl = `${protocol}://${host}`;
-      const botApiToken = (req.query._t as string) || (req.headers["x-api-key"] as string) || "";
+      const botApiToken = (req.query.t as string) || (req.query._t as string) || (req.headers["x-api-key"] as string) || "";
       const rawPaths = (employee.documentPaths as string[] | null) ?? [];
       const documents = rawPaths.map((docPath) => {
         const fileName = path.basename(docPath);
@@ -2052,7 +2052,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const cleanPath = docPath.startsWith("/") ? docPath.substring(1) : docPath;
         const encodedCleanPath = cleanPath.split("/").map((s: string) => encodeURIComponent(s).replace(/_/g, "%5F")).join("/");
         const fileUrl = botApiToken
-          ? `${baseUrl}/api/v1/files/${encodedCleanPath}?_t=${botApiToken}`
+          ? `${baseUrl}/api/v1/files/${encodedCleanPath}?t=${botApiToken}`
           : `${baseUrl}${docPath}`;
         return {
           name: fileName,
@@ -2135,7 +2135,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const host = req.get("host") || "localhost";
       const baseUrl = `${protocol}://${host}`;
       // Embed the API key in file URLs so WhatsApp users can open them directly
-      const apiKeyToken = (req.query._t as string) || (req.headers["x-api-key"] as string) || "";
+      const apiKeyToken = (req.query.t as string) || (req.query._t as string) || (req.headers["x-api-key"] as string) || "";
 
       const typeMap: Record<string, string> = {
         pdf: "PDF",
@@ -2160,7 +2160,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           // URL-encode each path segment to handle Arabic characters, spaces and underscores
           const encodedPath = cleanPath.split("/").map((s) => encodeURIComponent(s).replace(/_/g, "%5F")).join("/");
           const directUrl = apiKeyToken
-            ? `${baseUrl}/api/v1/files/${encodedPath}?_t=${apiKeyToken}`
+            ? `${baseUrl}/api/v1/files/${encodedPath}?t=${apiKeyToken}`
             : `${baseUrl}${docPath}`;
           return {
             file_name: fileName,
@@ -2337,7 +2337,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         await fs.mkdir(excelExportsDir, { recursive: true });
         const xlsFileName = `تقرير_الموظفين_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
         await fs.writeFile(path.join(excelExportsDir, xlsFileName), xlsBuffer);
-        excel_download_url = `${baseUrl}/api/v1/files/uploads/excel_exports/${encodeURIComponent(xlsFileName)}?_t=${apiKeyToken}`;
+        excel_download_url = `${baseUrl}/api/v1/files/uploads/excel_exports/${encodeURIComponent(xlsFileName)}?t=${apiKeyToken}`;
       } catch (xlsErr) {
         console.error("[master-query] Excel link generation failed:", xlsErr);
       }
@@ -2359,9 +2359,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             employee_count: employees_data.length,
           },
           word_card: {
-            description: "لتوليد بطاقة موظف Word، استخدم الرابط التالي مع إضافة nationalId أو name كمعامل. مثال: " + wordBaseUrl + "?nationalId=XXXXXXXXX&_t=" + apiKeyToken,
+            description: "لتوليد بطاقة موظف Word، استخدم الرابط التالي مع إضافة nationalId أو name كمعامل. مثال: " + wordBaseUrl + "?nationalId=XXXXXXXXX&t=" + apiKeyToken,
             url_template: wordBaseUrl,
-            api_key_param: "_t=" + apiKeyToken,
+            api_key_param: "t=" + apiKeyToken,
             usage: "أضف ?nationalId=رقم_وطني أو ?name=اسم_الموظف لتوليد بطاقة الموظف",
           },
         },
@@ -2487,10 +2487,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const filePath = path.join(excelExportsDir, safeFileName);
       await fs.writeFile(filePath, buffer);
 
-      const apiKey = (req.headers["x-api-key"] ?? req.query._t) as string;
+      const apiKey = (req.headers["x-api-key"] ?? req.query.t ?? req.query._t) as string;
       const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-      const downloadUrl = `${baseUrl}/api/v1/files/uploads/excel_exports/${encodeURIComponent(safeFileName)}?_t=${apiKey}`;
+      const downloadUrl = `${baseUrl}/api/v1/files/uploads/excel_exports/${encodeURIComponent(safeFileName)}?t=${apiKey}`;
 
       console.log(`[Bot generate-excel-link] Generated Excel for ${employees.length} employees: ${safeFileName}`);
 
@@ -2624,9 +2624,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const safeFileName = `تقرير_مخصص_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
       await fs.writeFile(path.join(excelExportsDir, safeFileName), buffer);
 
-      const apiKey = (req.headers["x-api-key"] ?? req.query._t) as string;
+      const apiKey = (req.headers["x-api-key"] ?? req.query.t ?? req.query._t) as string;
       const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const downloadUrl = `${baseUrl}/api/v1/files/uploads/excel_exports/${encodeURIComponent(safeFileName)}?_t=${apiKey}`;
+      const downloadUrl = `${baseUrl}/api/v1/files/uploads/excel_exports/${encodeURIComponent(safeFileName)}?t=${apiKey}`;
 
       const filtersApplied = [
         status           ? `الوضع: ${status}` : null,
@@ -2860,10 +2860,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await fs.writeFile(filePath, buffer);
 
       // Build the public download URL using the /api/v1/files/ route
-      const apiKey = (req.headers["x-api-key"] ?? req.query._t) as string;
+      const apiKey = (req.headers["x-api-key"] ?? req.query.t ?? req.query._t) as string;
       const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-      const downloadUrl = `${baseUrl}/api/v1/files/uploads/word_exports/${encodeURIComponent(safeFileName)}?_t=${apiKey}`;
+      const downloadUrl = `${baseUrl}/api/v1/files/uploads/word_exports/${encodeURIComponent(safeFileName)}?t=${apiKey}`;
 
       console.log(`[Bot generate-word-link] Generated Word card for ${employee.fullName}: ${safeFileName}`);
 
