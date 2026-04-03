@@ -1,0 +1,37 @@
+========================================
+ دليل تحديث حاوية HR App على السيرفر
+========================================
+السيرفر: 34.179.180.10 (GCP)
+المسار: ~/proteach-n8n/hr-app
+المستودع: https://github.com/ibrahims78/employee-management-system
+الفرع: main
+
+----------------------------------------
+ خطوات التحديث (كل مرة)
+----------------------------------------
+
+# 1. الانتقال لمجلد hr-app وسحب آخر تحديثات من GitHub
+cd ~/proteach-n8n/hr-app && git pull origin main
+
+# --- إذا ظهر خطأ تعارض ملفات (conflict)، نفّذ هذا أولاً ثم أعد الأمر أعلاه ---
+git stash
+mv Dockerfile.dev Dockerfile.dev.bak 2>/dev/null; mv entrypoint.dev.sh entrypoint.dev.sh.bak 2>/dev/null
+git pull origin main
+# ---------------------------------------------------------------------------
+
+# 2. إعادة بناء وتشغيل حاوية hr-app فقط دون المساس بالخدمات الأخرى
+cd ~/proteach-n8n && sudo docker-compose up -d --build hr-app
+
+# 3. متابعة السجلات للتأكد من التشغيل الصحيح
+sudo docker-compose logs -f hr-app
+# اضغط Ctrl+C لإيقاف متابعة السجلات
+
+----------------------------------------
+ ملاحظات مهمة
+----------------------------------------
+- وضع التشغيل: Development (NODE_ENV=development) - لا تغيّره
+- المنفذ الداخلي: 5002 → الرابط الخارجي: hr.sidawin8n.cfd
+- الخدمات الأخرى (n8n, wa-api, wa-dashboard, npm, portainer) لن تتأثر
+- قاعدة البيانات (proteach-hr-db) لن تتأثر والبيانات محفوظة
+
+========================================
