@@ -1,0 +1,23 @@
+FROM node:20-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y dos2unix && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+
+RUN npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 15000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm config set fetch-timeout 300000 \
+ && npm install
+
+COPY . .
+
+RUN mkdir -p storage/uploads storage/temp_uploads storage/backups
+
+EXPOSE 5002
+
+ENV NODE_ENV=development
+ENV PORT=5002
+
+CMD ["node_modules/.bin/tsx", "server/index.ts"]
