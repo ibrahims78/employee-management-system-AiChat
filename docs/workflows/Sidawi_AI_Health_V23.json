@@ -66,7 +66,7 @@
             {
               "id": "wa-assign-from",
               "name": "from",
-              "value": "={{ $json.body.from }}",
+              "value": "={{ $json.body.from || $json.body.number || $json.body.sender || $json.body.phone || '' }}",
               "type": "string"
             },
             {
@@ -255,7 +255,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://172.17.0.1:8082/send-text",
+        "url": "http://proteach-wa-api:8080/send-text",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -526,7 +526,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://172.17.0.1:8082/send-text",
+        "url": "http://proteach-wa-api:8080/send-text",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -615,7 +615,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://172.17.0.1:8082/send-text",
+        "url": "http://proteach-wa-api:8080/send-text",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -704,7 +704,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://172.17.0.1:8082/send-text",
+        "url": "http://proteach-wa-api:8080/send-text",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -990,7 +990,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://172.17.0.1:8082/send-text",
+        "url": "http://proteach-wa-api:8080/send-text",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -1193,7 +1193,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://172.17.0.1:8082/send-text",
+        "url": "http://proteach-wa-api:8080/send-text",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
