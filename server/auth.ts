@@ -72,11 +72,11 @@ export function setupAuth(app: Express) {
     }
   })();
 
-  // Create default admin user on startup
+  // Create default admin user only if NO users exist in the system at all
   (async () => {
     try {
-      const admin = await storage.getUserByUsername("admin");
-      if (!admin) {
+      const allUsers = await storage.getUsers();
+      if (allUsers.length === 0) {
         const hashedPassword = await hashPassword("123456");
         await storage.createUser({
           username: "admin",

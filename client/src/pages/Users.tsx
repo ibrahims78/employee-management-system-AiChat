@@ -27,6 +27,18 @@ import type { Employee } from "@shared/schema";
 
 // ─── System User Form ────────────────────────────────────────────────────────
 
+const createUserSchema = insertUserSchema.extend({
+  password: z.string().min(4, "كلمة المرور يجب أن تكون 4 أحرف على الأقل"),
+});
+
+const editUserSchema = z.object({
+  username: z.string().min(1, "اسم المستخدم مطلوب"),
+  password: z.string().optional(),
+  role: z.string().min(1, "الصلاحية مطلوبة"),
+});
+
+type EditUserValues = z.infer<typeof editUserSchema>;
+
 function UserFormDialog({
   open,
   onOpenChange,
@@ -37,19 +49,37 @@ function UserFormDialog({
   user?: User;
 }) {
   const { createUser, updateUser, isCreating, isUpdating } = useUsers();
+  const isEditMode = !!user;
 
-  const form = useForm<InsertUser>({
-    resolver: zodResolver(insertUserSchema),
+  const form = useForm<EditUserValues>({
+    resolver: zodResolver(isEditMode ? editUserSchema : createUserSchema),
     defaultValues: user
-      ? { username: user.username, password: user.password, role: user.role }
+      ? { username: user.username, password: "", role: user.role }
       : { username: "", password: "", role: "employee" },
   });
 
-  function onSubmit(data: InsertUser) {
+  useEffect(() => {
+    if (open) {
+      form.reset(
+        user
+          ? { username: user.username, password: "", role: user.role }
+          : { username: "", password: "", role: "employee" }
+      );
+    }
+  }, [open, user]);
+
+  function onSubmit(data: EditUserValues) {
     if (user) {
-      updateUser({ id: user.id, data }, { onSuccess: () => onOpenChange(false) });
+      const updateData: Record<string, string> = {
+        username: data.username,
+        role: data.role,
+      };
+      if (data.password && data.password.trim().length > 0) {
+        updateData.password = data.password;
+      }
+      updateUser({ id: user.id, data: updateData }, { onSuccess: () => onOpenChange(false) });
     } else {
-      createUser(data, { onSuccess: () => onOpenChange(false) });
+      createUser(data as InsertUser, { onSuccess: () => onOpenChange(false) });
     }
   }
 
@@ -59,7 +89,7 @@ function UserFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{user ? "تعديل مستخدم" : "إضافة مستخدم جديد"}</DialogTitle>
+          <DialogTitle>{isEditMode ? "تعديل مستخدم" : "إضافة مستخدم جديد"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -67,11 +97,18 @@ function UserFormDialog({
               <FormItem><FormLabel>اسم المستخدم</FormLabel><FormControl><Input data-testid="input-username" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="password" render={({ field }) => (
-              <FormItem><FormLabel>كلمة المرور</FormLabel><FormControl><Input data-testid="input-password" type="password" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem>
+                <FormLabel>
+                  كلمة المرور
+                  {isEditMode && <span className="text-xs text-muted-foreground mr-1">(اتركها فارغة للإبقاء على الحالية)</span>}
+                </FormLabel>
+                <FormControl><Input data-testid="input-password" type="password" placeholder={isEditMode ? "••••••••" : ""} {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
             )} />
             <FormField control={form.control} name="role" render={({ field }) => (
               <FormItem><FormLabel>الصلاحية</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl><SelectTrigger data-testid="select-role"><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent>
                     <SelectItem value="admin">مدير</SelectItem>
