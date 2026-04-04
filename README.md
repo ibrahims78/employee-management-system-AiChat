@@ -167,8 +167,16 @@ employee-management-system/
 │   └── routes.ts                   # تعريف مسارات API
 ├── 📁 docs/                        # التوثيق التفصيلي
 │   ├── workflows/
-│   │   ├── Sidawi_AI_Health_V22.json  # ورك فلو n8n — واتساب فقط
-│   │   └── Sidawi_AI_Health_V23.json  # ورك فلو n8n — واتساب + تلغرام (موصى به)
+│   │   ├── Sidawi_AI_Health_V22.json      # ورك فلو n8n — واتساب فقط
+│   │   ├── Sidawi_AI_Health_V22_Guide.md  # دليل V22 التفصيلي
+│   │   ├── Sidawi_AI_Health_V23.json      # ورك فلو n8n — واتساب + تلغرام (موصى به)
+│   │   └── Sidawi_AI_Health_V23_Guide.md  # دليل V23 التفصيلي
+│   ├── SYSTEM_GUIDE.md             # دليل النظام الشامل
+│   ├── WORKFLOW_GUIDE.md           # دليل ورك فلو n8n التفصيلي
+│   ├── DATABASE_GUIDE.md           # دليل قاعدة البيانات
+│   ├── API_KEYS_GUIDE.md           # دليل مفاتيح API
+│   ├── n8n-workflow-wa-settings.txt # إعدادات ورك فلو الواتساب الصحيحة (VPS)
+│   ├── update-hr-app.txt           # دليل تحديث الحاوية على السيرفر
 │   ├── docker-windows-setup.md     # دليل Docker على ويندوز
 │   ├── deployment.md               # دليل النشر العام
 │   └── table.sql                   # تعريف جدول الجلسات (مرجع)
@@ -308,7 +316,7 @@ POST /api/v1/bot/check-auth
 ### متطلبات n8n
 - خادم n8n مشغَّل
 - بيانات اعتماد **Google Gemini API** مُعدَّة في n8n
-- خادم واتساب على `http://172.17.0.1:8082` (أو تحديث الروابط)
+- خادم واتساب (`wa-api`) على `http://proteach-wa-api:8080/api/send/text` داخل شبكة Docker
 
 ### مكونات ورك فلو V22
 

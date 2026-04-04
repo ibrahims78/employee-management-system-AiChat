@@ -124,12 +124,15 @@ employee-management-system/
 │   └── routes.ts                   # ثوابت مسارات API
 │
 ├── 📁 docs/                        # التوثيق
-│   ├── WORKFLOW_GUIDE.md           # دليل ورك فلو n8n التفصيلي
-│   ├── DATABASE_GUIDE.md           # دليل قاعدة البيانات التفصيلي
-│   ├── SYSTEM_GUIDE.md             # هذا الملف
-│   ├── deployment.md               # دليل النشر
-│   ├── docker-windows-setup.md     # إعداد Docker على ويندوز
-│   ├── table.sql                   # تعريف جدول الجلسات (مرجع)
+│   ├── WORKFLOW_GUIDE.md               # دليل ورك فلو n8n التفصيلي
+│   ├── DATABASE_GUIDE.md               # دليل قاعدة البيانات التفصيلي
+│   ├── SYSTEM_GUIDE.md                 # هذا الملف
+│   ├── API_KEYS_GUIDE.md               # دليل مفاتيح API
+│   ├── n8n-workflow-wa-settings.txt    # إعدادات ورك فلو الواتساب الصحيحة (VPS)
+│   ├── update-hr-app.txt               # دليل تحديث الحاوية على السيرفر
+│   ├── deployment.md                   # دليل النشر
+│   ├── docker-windows-setup.md         # إعداد Docker على ويندوز
+│   ├── table.sql                       # تعريف جدول الجلسات (مرجع)
 │   └── 📁 workflows/
 │       ├── Sidawi_AI_Health_V22.json      # ورك فلو n8n — واتساب فقط (14 عقدة)
 │       ├── Sidawi_AI_Health_V22_Guide.md  # دليل V22 التفصيلي
